@@ -430,7 +430,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   val will_fire_sta_retry      = Wire(Vec(memWidth, Bool()))
   val will_fire_store_commit   = Wire(Vec(memWidth, Bool()))
   val will_fire_load_wakeup    = Wire(Vec(memWidth, Bool()))
-  //val will_fire_bndld_incoming = Wire(Vec(memWidth, Bool())) //yh+
 
   val exe_req = WireInit(VecInit(io.core.exe.map(_.req)))
   // Sfence goes through all pipes
@@ -463,6 +462,12 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     {
       mcq(mq_enq_idx).valid               := true.B
       mcq(mq_enq_idx).bits.uop            := io.core.dis_uops(w).bits
+      mcq(mq_enq_idx).bits.uop.mem_cmd    := rocket.M_XRD
+      mcq(mq_enq_idx).bits.uop.mem_size   := 0.U
+      mcq(mq_enq_idx).bits.uop.uses_ldq   := false.B
+      mcq(mq_enq_idx).bits.uop.uses_stq   := false.B
+      mcq(mq_enq_idx).bits.uop.uses_mcq   := true.B
+
       mcq(mq_enq_idx).bits.addr.valid     := false.B
       mcq(mq_enq_idx).bits.baddr.valid    := false.B //TODO baddr is needed?
 
@@ -513,9 +518,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     }
   }
 
-  val mcq_head_e  = mcq(mcq_head) // Current MCQ entry to operate with
 
-  var temp_mcq_head = mcq_head
   for (i <- 0 until numMcqEntries)
   {
     when (mcq(i).valid)
@@ -527,49 +530,47 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       } .elsewhen (mcq(i).bits.state === s_fail) {
 
       } .elsewhen (mcq(i).bits.state === s_done) {
-        mcq(i).valid              := false.B
-        mcq(i).bits.addr.valid    := false.B
-        mcq(i).bits.executed      := false.B
-        //mcq(i).bits.suceeded      := false.B
-        mcq(i).bits.state         := s_init
-
-        printf("YH+ [%d] Dequeue mcq(%d)\n", io.core.tsc_reg, i.U)
-
-        temp_mcq_head = WrapInc(temp_mcq_head, numMcqEntries)
       }
     }
+  }
+
+  val mcq_head_e  = mcq(mcq_head) // Current MCQ entry to operate with
+  var temp_mcq_head = mcq_head
+
+  val commit_mem = mcq_head_e.valid && (mcq_head_e.bits.state === s_done)
+
+  when (commit_mem)
+  {
+    mcq(mcq_head).valid              := false.B
+    mcq(mcq_head).bits.addr.valid    := false.B
+    mcq(mcq_head).bits.executed      := false.B
+    mcq(mcq_head).bits.state         := s_init
+
+    printf("YH+ [%d] Dequeue mcq(%d)\n", io.core.tsc_reg, i.U)
+
+    temp_mcq_head = WrapInc(temp_mcq_head, numMcqEntries)
   }
 
   mcq_head := temp_mcq_head
 
-  val mcq_load_val = Reg(Vec(memWidth, Bool()))
-  val mcq_load_idx = Reg(Vec(memWidth, UInt(mcqAddrSz.W)))
+  printf("YH+ [%d] mcq_head: %d mcq_tail: %d\n", io.core.tsc_reg, mcq_head, mcq_tail)
 
-  for (w <- 0 until memWidth)
-  {
-    for (i <- 0 until numMcqEntries)
-    {
-      when (mcq(i).valid)
-      {
-        when (mcq(i).bits.state === s_bndChk && !mcq(i).bits.executed)
-        {
-          mcq_load_val(w)   := true.B
-          mcq_load_idx(w)   := i.U
-        }
-      }
-    }
-  }
+  val mcq_load_idx = RegNext(AgePriorityEncoder((0 until numMcqEntries).map(i => {
+    val e = mcq(i).bits
+    e.state === s_bndChk && !e.executed
+  }), mcq_head))
+  val mcq_load_e = mcq(mcq_load_idx)
 
-  //val will_fire_bnd_load = Wire(Vec(memWidth, Bool()))
+  val will_fire_bnd_load = Wire(Vec(memWidth, Bool()))
   //val will_fire_bnd_store = Wire(Vec(memWidth, Bool()))
 
   //val mcq_load_e = widthMap(w => mcq(mc
 
-  //val can_fire_bnd_load = widthMap(w => mcq_load_e.valid                &&
-  //                                  mcq_load_e.bits.state === s_bndChk  &&
-  //                                  !mcq_load_e.bits.executed           &&
-  //                                  //TODO !lrsc_valid                         &&
-  //                                  (w == memWidth-1).B)
+  val can_fire_bnd_load = widthMap(w => mcq_load_e.valid                &&
+                                    //TODO !lrsc_valid                         &&
+                                    (w == memWidth-1).B)
+
+  val bnd_load_paddr = 65536.U
 
   //-------------------------------------------------------------
   //-------------------------------------------------------------
@@ -748,8 +749,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     will_fire_sta_retry     (w) := lsu_sched(can_fire_sta_retry     (w) , true , false, true , true)  // TLB ,    , LCAM , ROB // TODO: This should be higher priority
     will_fire_store_commit  (w) := lsu_sched(can_fire_store_commit  (w) , false, true , false, false) //     , DC
     will_fire_load_wakeup   (w) := lsu_sched(can_fire_load_wakeup   (w) , false, true , true , false) //     , DC , LCAM
-    //will_fire_bnd_load      (w) := lsu_sched(can_fire_bnd_load      (w) , false, true , false, false) //     , DC , //yh+
-    //will_fire_bndld_incoming(w) := lsu_sched(can_fire_bndld_incoming(w) , false, true , true , false) //     , DC , LCAM
+    will_fire_bnd_load      (w) := lsu_sched(can_fire_bnd_load      (w) , false, true , false, false) //     , DC , //yh+
 
     assert(!(exe_req(w).valid && !(will_fire_load_incoming(w) || will_fire_stad_incoming(w) || will_fire_sta_incoming(w) || will_fire_std_incoming(w) || will_fire_sfence(w))))
 
@@ -1014,13 +1014,14 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       dmem_req(w).bits.uop.mem_signed := hella_req.signed
       dmem_req(w).bits.is_hella       := true.B
     }
-    //  .elsewhen (will_fire_bndld_incoming(w)) // F: request for bounds data
-    //{
-    //  dmem_req(w).valid               := !exe_tlb_miss(w) && !exe_tlb_uncacheable(w)
-    //  dmem_req(w).bits.addr           := exe_tlb_paddr(w)
-    //  dmem_req(w).bits.uop            := exe_tlb_uop(w)
+      .elsewhen (will_fire_bnd_load(w)) //yh+
+    {
+      dmem_req(w).valid               := true.B
+      dmem_req(w).bits.addr           := bnd_load_paddr
+      dmem_req(w).bits.uop            := mcq_load_e.bits.uop
 
-    //}
+      mcq_load_e.bits.executed        := dmem_req_fire(w)
+    }
 
     //-------------------------------------------------------------
     // Write Addr into the LAQ/SAQ
@@ -1445,6 +1446,38 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
   val dmem_resp_fired = WireInit(widthMap(w => false.B))
 
+  //yh+begin
+  val bnd_load_resp_val = RegNext(widthMap(w =>
+                                  io.dmem.resp(w).valid &&
+                                  io.dmem.resp(w).uses_mcq))
+
+  val bnd_load_resp_idx = RegNext(widthMap(w =>
+                                  Mux(io.dmem.resp(w).valid,
+                                      io.dmem.resp(w).bits.uop.mcq_idx, 0.U)))
+  val bnd_load_resp_data = RegNext(widthMap(w =>
+                                  Mux(io.dmem.resp(w).valid,
+                                      io.dmem.resp(w).bits.data, 0.U)))
+
+  for (w <- 0 until memWidth) {
+    when (io.dmem.resp(w).valid)
+    {
+      printf("YH+ [%d] Received RESP(%d) mcq(%d)\n",
+              io.core.tsc_reg, w.U, io.dmem.resp(w).bits.uop.mcq_idx)
+    }
+
+    when (bnd_load_resp_val(w))
+    {
+      printf("YH+ [%d] bnd_load_resp_val(w) is true\n",
+              io.core.tsc_reg, w.U)
+
+      val mcq_idx = bnd_load_resp_idx(w)
+      mcq(mcq_idx).bits.state       := s_done
+      mcq(mcq_idx).bits.executed    := false.B
+    }
+  }
+
+  //yh+end
+
   for (w <- 0 until memWidth) {
     // Handle nacks
     when (io.dmem.nack(w).valid)
@@ -1461,13 +1494,24 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
         ldq(io.dmem.nack(w).bits.uop.ldq_idx).bits.execute_ignore  := false.B
         nacking_loads(io.dmem.nack(w).bits.uop.ldq_idx) := true.B
       }
-        .otherwise
+        //yh-.otherwise
+        .elsewhen (io.dmem.nack(w).bits.uop.uses_stq) //yh+
       {
         assert(io.dmem.nack(w).bits.uop.uses_stq)
         when (IsOlder(io.dmem.nack(w).bits.uop.stq_idx, stq_execute_head, stq_head)) {
           stq_execute_head := io.dmem.nack(w).bits.uop.stq_idx
         }
       }
+      //yh+begin
+         .otherwise
+      {
+        assert(io.dmem.nack(w).bits.uop.uses_mcq)
+        val mcq_idx = io.dmem.nack(w).bits.uop.mcq_idx
+        mcq(mcq_idx).bits.executed    := false.B
+
+        printf("YH+ [%d] Received NACK mcq(%d)\n", io.core.tsc_reg, mcq_idx)
+      }
+      //+end
     }
     // Handle the response
     when (io.dmem.resp(w).valid)
@@ -1511,16 +1555,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
           stq(io.dmem.resp(w).bits.uop.stq_idx).bits.debug_wb_data := io.dmem.resp(w).bits.data
         }
-      }
-        .otherwise // uses mcq //yh+
-      {
-        val mcq_idx = mcq_head
-
-        mcq(mcq_idx).bits.executed  := true.B
-        //mcq(mcq_idx).bits.bnd_data.bits  := io.dmem.resp(w).bits.data
-
-        // TODO- check bounds metadata and set succeeded accordingly
-        mcq(mcq_idx).bits.succeeded := false.B
       }
     }
 
