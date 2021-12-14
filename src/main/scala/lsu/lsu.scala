@@ -266,8 +266,8 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   val bdq_head         = Reg(UInt(bdqAddrSz.W)) 
   val bdq_tail         = Reg(UInt(bdqAddrSz.W))
 
-  val m_init :: m_bndChk :: m_fail :: m_done :: Nil = Enum(3) //yh+
-  val b_init :: b_occChk :: b_bndStr :: b_fail :: b_done :: Nil = Enum(4) //yh+
+  val m_init :: m_bndChk :: m_fail :: m_done :: Nil = Enum(4) //yh+
+  val b_init :: b_occChk :: b_bndStr :: b_fail :: b_done :: Nil = Enum(5) //yh+
   //yh+end
 
   assert (stq(stq_execute_head).valid ||
