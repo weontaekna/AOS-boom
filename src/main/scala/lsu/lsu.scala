@@ -430,7 +430,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   val will_fire_sta_retry      = Wire(Vec(memWidth, Bool()))
   val will_fire_store_commit   = Wire(Vec(memWidth, Bool()))
   val will_fire_load_wakeup    = Wire(Vec(memWidth, Bool()))
-  val will_fire_bndld_incoming = Wire(Vec(memWidth, Bool())) //yh+
+  //val will_fire_bndld_incoming = Wire(Vec(memWidth, Bool())) //yh+
 
   val exe_req = WireInit(VecInit(io.core.exe.map(_.req)))
   // Sfence goes through all pipes
@@ -550,8 +550,8 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     }
   }
 
-  val will_fire_bnd_load = Wire(Vec(memWidth, Bool()))
-  val will_fire_bnd_store = Wire(Vec(memWidth, Bool()))
+  //val will_fire_bnd_load = Wire(Vec(memWidth, Bool()))
+  //val will_fire_bnd_store = Wire(Vec(memWidth, Bool()))
 
   //val can_fire_bnd_load = widthMap(w => mcq_load_e.valid                &&
   //                                  mcq_load_e.bits.state === s_bndChk  &&
@@ -1002,13 +1002,13 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       dmem_req(w).bits.uop.mem_signed := hella_req.signed
       dmem_req(w).bits.is_hella       := true.B
     }
-      .elsewhen (will_fire_bndld_incoming(w)) // F: request for bounds data
-    {
-      dmem_req(w).valid               := !exe_tlb_miss(w) && !exe_tlb_uncacheable(w)
-      dmem_req(w).bits.addr           := exe_tlb_paddr(w)
-      dmem_req(w).bits.uop            := exe_tlb_uop(w)
+    //  .elsewhen (will_fire_bndld_incoming(w)) // F: request for bounds data
+    //{
+    //  dmem_req(w).valid               := !exe_tlb_miss(w) && !exe_tlb_uncacheable(w)
+    //  dmem_req(w).bits.addr           := exe_tlb_paddr(w)
+    //  dmem_req(w).bits.uop            := exe_tlb_uop(w)
 
-    }
+    //}
 
     //-------------------------------------------------------------
     // Write Addr into the LAQ/SAQ
