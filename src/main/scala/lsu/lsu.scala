@@ -737,7 +737,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     will_fire_sta_retry     (w) := lsu_sched(can_fire_sta_retry     (w) , true , false, true , true)  // TLB ,    , LCAM , ROB // TODO: This should be higher priority
     will_fire_store_commit  (w) := lsu_sched(can_fire_store_commit  (w) , false, true , false, false) //     , DC
     will_fire_load_wakeup   (w) := lsu_sched(can_fire_load_wakeup   (w) , false, true , true , false) //     , DC , LCAM
-    will_fire_bnd_load      (w) := lsu_sched(can_fire_bnd_load      (w) , false, true , false, false) //     , DC , //yh+
+    //will_fire_bnd_load      (w) := lsu_sched(can_fire_bnd_load      (w) , false, true , false, false) //     , DC , //yh+
     //will_fire_bndld_incoming(w) := lsu_sched(can_fire_bndld_incoming(w) , false, true , true , false) //     , DC , LCAM
 
     assert(!(exe_req(w).valid && !(will_fire_load_incoming(w) || will_fire_stad_incoming(w) || will_fire_sta_incoming(w) || will_fire_std_incoming(w) || will_fire_sfence(w))))
