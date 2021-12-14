@@ -519,20 +519,16 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   }
 
 
-  for (i <- 0 until numMcqEntries)
-  {
-    when (mcq(i).valid)
-    {
-      when (mcq(i).bits.state === s_bndChk) {
+  //for (i <- 0 until numMcqEntries)
+  //{
+  //  when (mcq(i).valid)
+  //  {
+  //    when (mcq(i).bits.state === s_incCnt) {
 
-      } .elsewhen (mcq(i).bits.state === s_incCnt) {
-
-      } .elsewhen (mcq(i).bits.state === s_fail) {
-
-      } .elsewhen (mcq(i).bits.state === s_done) {
-      }
-    }
-  }
+  //    } .elsewhen (mcq(i).bits.state === s_fail) {
+  //    }
+  //  }
+  //}
 
   val mcq_head_e  = mcq(mcq_head) // Current MCQ entry to operate with
   var temp_mcq_head = mcq_head
@@ -571,6 +567,18 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                                     (w == memWidth-1).B)
 
   val bnd_load_paddr = 65536.U
+
+
+  //val mcq_retry_idx = RegNext(AgePriorityEncoder((0 until numMcqEntries).map(i => {
+  //  val e = mcq(i).bits
+  //  e.state === s_incCnt
+  //}), mcq_head))
+  //val mcq_retry_e = mcq(mcq_retry_idx)
+
+  //val can_fire_bnd_retry = widthMap(w => mcq_try_e.valid  &&
+  //                                    (w == memWidth-1).B)
+
+
 
   //-------------------------------------------------------------
   //-------------------------------------------------------------

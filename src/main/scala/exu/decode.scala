@@ -539,6 +539,7 @@ class DecodeUnit(implicit p: Parameters) extends BoomModule
   uop.mem_signed := !inst(14)
   uop.uses_ldq   := cs.uses_ldq
   uop.uses_stq   := cs.uses_stq
+  uop.uses_mcq   := false.B //yh+ will be set when generating mem req
   uop.is_amo     := cs.is_amo
   uop.is_fence   := cs.is_fence
   uop.is_fencei  := cs.is_fencei
