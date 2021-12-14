@@ -607,7 +607,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
 
   val exe_bdq_val = widthMap(w => exe_req(w).valid
-                                    && exe_req(w).bits.uop.uses_bdq
+                                    && exe_req(w).bits.uop.uses_bdq)
 
   val exe_bdq_idx = widthMap(w => exe_req(w).bits.uop.bdq_idx)
   val exe_bdq_vaddr = widthMap(w => exe_req(w).bits.addr)
