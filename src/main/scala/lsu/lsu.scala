@@ -242,7 +242,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   val mcq_tail         = Reg(UInt(mcqAddrSz.W))
   val mcq_head         = Reg(UInt(mcqAddrSz.W)) 
 
-  val s_init :: s_bndChk :: s_occChk :: s_bndStr :: s_incCnt :: s_fail :: s_done :: Nil = Enum(6) //yh+
+  val s_init :: s_bndChk :: s_occChk :: s_bndStr :: s_incCnt :: s_fail :: s_done :: Nil = Enum(7) //yh+
   //yh+end
 
   assert (stq(stq_execute_head).valid ||
@@ -782,7 +782,8 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   val exe_tlb_vaddr = widthMap(w =>
                     Mux(will_fire_load_incoming (w) ||
                         will_fire_stad_incoming (w) ||
-                        will_fire_sta_incoming  (w)  , exe_req(w).bits.addr,
+                        //yh-will_fire_sta_incoming  (w)  , exe_req(w).bits.addr,
+                        will_fire_sta_incoming  (w)  , (exe_req(w).bits.addr & 0x1FFFFFFFFFFF), //yh+ to mask PAC
                     Mux(will_fire_sfence        (w)  , exe_req(w).bits.sfence.bits.addr,
                     Mux(will_fire_load_retry    (w)  , ldq_retry_e.bits.addr.bits,
                     Mux(will_fire_sta_retry     (w)  , stq_retry_e.bits.addr.bits,
