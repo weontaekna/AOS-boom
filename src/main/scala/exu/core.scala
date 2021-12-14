@@ -564,6 +564,7 @@ class BoomCore(implicit p: Parameters) extends BoomModule
                       || ren_stalls(w)
                       || io.lsu.ldq_full(w) && dis_uops(w).uses_ldq
                       || io.lsu.stq_full(w) && dis_uops(w).uses_stq
+                      || io.lsu.mcq_full(w) && (dis_uops(w).uses_ldq || dis_uops(w).uses_stq) //yh+
                       || !dispatcher.io.ren_uops(w).ready
                       || wait_for_empty_pipeline(w)
                       || wait_for_rocc(w)
@@ -585,6 +586,7 @@ class BoomCore(implicit p: Parameters) extends BoomModule
     // Dispatching instructions request load/store queue entries when they can proceed.
     dis_uops(w).ldq_idx := io.lsu.dis_ldq_idx(w)
     dis_uops(w).stq_idx := io.lsu.dis_stq_idx(w)
+    dis_uops(w).mcq_idx := io.lsu.dis_mcq_idx(w) //yh+
   }
 
   //-------------------------------------------------------------
