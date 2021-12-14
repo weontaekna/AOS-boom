@@ -568,18 +568,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
   val bnd_load_paddr = 65536.U
 
-
-  //val mcq_retry_idx = RegNext(AgePriorityEncoder((0 until numMcqEntries).map(i => {
-  //  val e = mcq(i).bits
-  //  e.state === s_incCnt
-  //}), mcq_head))
-  //val mcq_retry_e = mcq(mcq_retry_idx)
-
-  //val can_fire_bnd_retry = widthMap(w => mcq_try_e.valid  &&
-  //                                    (w == memWidth-1).B)
-
-
-
   //-------------------------------------------------------------
   //-------------------------------------------------------------
   // dequeue old entries on commit
@@ -1457,7 +1445,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   //yh+begin
   val bnd_load_resp_val = RegNext(widthMap(w =>
                                   io.dmem.resp(w).valid &&
-                                  io.dmem.resp(w).uses_mcq))
+                                  io.dmem.resp(w).bits.uop.uses_mcq))
 
   val bnd_load_resp_idx = RegNext(widthMap(w =>
                                   Mux(io.dmem.resp(w).valid,
@@ -1465,6 +1453,8 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   val bnd_load_resp_data = RegNext(widthMap(w =>
                                   Mux(io.dmem.resp(w).valid,
                                       io.dmem.resp(w).bits.data, 0.U)))
+  val bnd_check = Wire(Bool())
+  bnd_check := true.B
 
   for (w <- 0 until memWidth) {
     when (io.dmem.resp(w).valid)
@@ -1479,8 +1469,32 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
               io.core.tsc_reg, w.U)
 
       val mcq_idx = bnd_load_resp_idx(w)
-      mcq(mcq_idx).bits.state       := s_done
-      mcq(mcq_idx).bits.executed    := false.B
+      val count = mcq(mcq_idx).bits.count
+
+      when (bnd_check)
+      {
+        mcq(mcq_idx).bits.state       := s_done
+        //mcq(mcq_idx).bits.executed    := false.B
+
+        printf("YH+ [%d] Passed bounds check! mcq(%d)\n",
+                io.core.tsc_reg, mcq_idx)
+      }
+        .elsewhen (count < 4)
+      {
+        mcq(mcq_idx).bits.executed    := false.B
+        mcq(mcq_idx).bits.count       := count + 1.U
+
+        printf("YH+ [%d] Increase counter mcq(%d)\n",
+                io.core.tsc_reg, mcq_idx)
+      }
+        .otherwise
+      {
+        mcq(mcq_idx).bits.state       := s_fail
+
+        printf("YH+ [%d] Failed bounds check! mcq(%d)\n",
+                io.core.tsc_reg, mcq_idx)
+      }
+      
     }
   }
 
