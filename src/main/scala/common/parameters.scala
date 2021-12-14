@@ -34,7 +34,8 @@ case class BoomCoreParams(
     IssueParams(issueWidth=1, numEntries=16, iqType=IQT_FP.litValue , dispatchWidth=1)),
   numLdqEntries: Int = 16,
   numStqEntries: Int = 16,
-  numMcqEntries: Int = 16, // F: todo- corect this
+  numMcqEntries: Int = 16, // F: todo- corect this //yh+
+  numBdqEntries: Int = 16, // F: todo- corect this //yh+
   numHbtRows:    Int = 16, // F: todo- correct this
   hbtAddrBits:   Int = 8,  // F: todo- correct this
   numIntPhysRegisters: Int = 96,
@@ -154,7 +155,8 @@ trait HasBoomCoreParameters extends freechips.rocketchip.tile.HasCoreParameters
   val numRcqEntries = boomParams.numRCQEntries       // number of RoCC commit queue entries. This can be large since it just keeps a pdst
   val numLdqEntries = boomParams.numLdqEntries       // number of LAQ entries
   val numStqEntries = boomParams.numStqEntries       // number of SAQ/SDQ entries
-  val numMcqEntries = boomParams.numMcqEntries       // number of MCQ entries
+  val numMcqEntries = boomParams.numMcqEntries       // number of MCQ entries //yh+
+  val numBdqEntries = boomParams.numBdqEntries       // number of BDQ entries //yh+
   val hbtAddrBits   = boomParams.hbtAddrBits         // how wide addresses are for the HBT
   val numHbtRows    = boomParams.numHbtRows          // how many rows there are in the HBT
   val maxBrCount    = boomParams.maxBrCount          // number of branches we can speculate simultaneously
@@ -271,7 +273,8 @@ trait HasBoomCoreParameters extends freechips.rocketchip.tile.HasCoreParameters
   val maxPregSz       = ipregSz max fpregSz
   val ldqAddrSz       = log2Ceil(numLdqEntries)
   val stqAddrSz       = log2Ceil(numStqEntries)
-  val mcqAddrSz       = log2Ceil(numMcqEntries)
+  val mcqAddrSz       = log2Ceil(numMcqEntries) //yh+
+  val bdqAddrSz       = log2Ceil(numBdqEntries) //yh+
   val lsuAddrSz       = ldqAddrSz max stqAddrSz
   val brTagSz         = log2Ceil(maxBrCount)
 
