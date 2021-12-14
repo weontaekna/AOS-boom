@@ -542,7 +542,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     mcq(mcq_head).bits.executed      := false.B
     mcq(mcq_head).bits.state         := s_init
 
-    printf("YH+ [%d] Dequeue mcq(%d)\n", io.core.tsc_reg, i.U)
+    printf("YH+ [%d] Dequeue mcq(%d)\n", io.core.tsc_reg, mcq_head)
 
     temp_mcq_head = WrapInc(temp_mcq_head, numMcqEntries)
   }
