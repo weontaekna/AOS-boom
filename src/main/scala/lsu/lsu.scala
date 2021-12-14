@@ -237,7 +237,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
   //yh+begin
   val mcq = Reg(Vec(numMcqEntries, Valid(new MCQEntry)))
-  val bdq = Reg(Vec(numBdqEntries, Valid(new BDQEntry)))
+  //val bdq = Reg(Vec(numBdqEntries, Valid(new BDQEntry)))
 
   val mcq_tail         = Reg(UInt(mcqAddrSz.W))
   val mcq_head         = Reg(UInt(mcqAddrSz.W)) 
@@ -451,9 +451,9 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     io.core.mcq_full(w)    := mcq_full
     io.core.dis_mcq_idx(w) := mq_enq_idx
 
-    val dis_mq_val = io.core.dis_uops(w).valid
+    val dis_mq_val = (io.core.dis_uops(w).valid
                         && (io.core.dis_uops(w).bits.uses_ldq || io.core.dis_uops(w).bits.uses_stq)
-                        && !io.core.dis_uops(w).bits.exception
+                        && !io.core.dis_uops(w).bits.exception)
 
     when (dis_mq_val)
     {
@@ -462,11 +462,11 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       mcq(mq_enq_idx).bits.addr.valid     := false.B
       mcq(mq_enq_idx).bits.baddr.valid    := false.B //TODO baddr is needed?
 
-      mcq(mq_enq_dix).bits.executed       := false.B
-      mcq(mq_enq_dix).bits.succeeded      := false.B
+      mcq(mq_enq_idx).bits.executed       := false.B
+      mcq(mq_enq_idx).bits.succeeded      := false.B
 
-      mcq(mq_enq_dix).bits.way            := 0.U
-      mcq(mq_enq_dix).bits.count          := 0.U
+      mcq(mq_enq_idx).bits.way            := 0.U
+      mcq(mq_enq_idx).bits.count          := 0.U
       mcq(mq_enq_idx).bits.state          := 0.U
 
       printf("YH+ [%d] Dispatch mcq(%d)n",
@@ -501,11 +501,11 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       val midx = exe_mem_idx(w)
 
       mcq(midx).bits.addr.valid   := true.B
-      mcq(midx).bits.addr.bits    := exe_mem_vaddr(w).bits
+      mcq(midx).bits.addr.bits    := exe_mem_vaddr(w)
       mcq(midx).bits.state        := Mux(exe_mem_isPACed(w), s_bndChk, s_done) // Go to s_bndChk
 
       printf("YH+ [%d] Get exe_req(%d) for mcq(%d) vaddr: %x PACed: %d\n",
-              io.core.tsc_reg, w.U, midx, exe_mem_vaddr(w).bits, exe_mem_isPACed(w).U)
+              io.core.tsc_reg, w.U, midx, exe_mem_vaddr(w), exe_mem_isPACed(w))
     }
   }
 
@@ -523,7 +523,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
       } .elsewhen (mcq(i).bits.state === s_done) {
         mcq(i).valid              := false.B
-        mcq(i).bits.addr.vallid   := false.B
+        mcq(i).bits.addr.valid    := false.B
         mcq(i).bits.executed      := false.B
         //mcq(i).bits.suceeded      := false.B
         mcq(i).bits.state         := s_init
@@ -554,11 +554,11 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   val will_fire_bnd_load = Wire(Vec(memWidth, Bool()))
   val will_fire_bnd_store = Wire(Vec(memWidth, Bool()))
 
-  val can_fire_bnd_load = widthMap(w => mcq_load_e.valid                &&
-                                    mcq_load_e.bits.state === s_bndChk  &&
-                                    !mcq_load_e.bits.executed           &&
-                                    //TODO !lrsc_valid                         &&
-                                    (w == memWidth-1).B)
+  //val can_fire_bnd_load = widthMap(w => mcq_load_e.valid                &&
+  //                                  mcq_load_e.bits.state === s_bndChk  &&
+  //                                  !mcq_load_e.bits.executed           &&
+  //                                  //TODO !lrsc_valid                         &&
+  //                                  (w == memWidth-1).B)
 
   //-------------------------------------------------------------
   //-------------------------------------------------------------
