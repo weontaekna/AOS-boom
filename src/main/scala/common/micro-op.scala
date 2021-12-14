@@ -88,6 +88,7 @@ class MicroOp(implicit p: Parameters) extends BoomBundle
   val ldq_idx          = UInt(ldqAddrSz.W)
   val stq_idx          = UInt(stqAddrSz.W)
   val mcq_idx          = UInt(mcqAddrSz.W) //yh+
+  val bdq_idx          = UInt(bdqAddrSz.W) //yh+
   val rxq_idx          = UInt(log2Ceil(numRxqEntries).W)
   val pdst             = UInt(maxPregSz.W)
   val prs1             = UInt(maxPregSz.W)
