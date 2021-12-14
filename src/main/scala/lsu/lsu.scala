@@ -225,7 +225,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 {
   val io = IO(new LSUIO)
 
-
   val ldq = Reg(Vec(numLdqEntries, Valid(new LDQEntry)))
   val stq = Reg(Vec(numStqEntries, Valid(new STQEntry)))
   val ldq_head         = Reg(UInt(ldqAddrSz.W))
@@ -783,7 +782,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                     Mux(will_fire_load_incoming (w) ||
                         will_fire_stad_incoming (w) ||
                         //yh-will_fire_sta_incoming  (w)  , exe_req(w).bits.addr,
-                        will_fire_sta_incoming  (w)  , (exe_req(w).bits.addr & 0x1FFFFFFFFFFF), //yh+ to mask PAC
+                        will_fire_sta_incoming  (w)  , (exe_req(w).bits.addr & 0x1FFFFFFFFFFFL), //yh+ to mask PAC
                     Mux(will_fire_sfence        (w)  , exe_req(w).bits.sfence.bits.addr,
                     Mux(will_fire_load_retry    (w)  , ldq_retry_e.bits.addr.bits,
                     Mux(will_fire_sta_retry     (w)  , stq_retry_e.bits.addr.bits,
