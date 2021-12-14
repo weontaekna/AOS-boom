@@ -465,11 +465,13 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
     val dis_mq_val = (io.core.dis_uops(w).valid
                         && (io.core.dis_uops(w).bits.uses_ldq || io.core.dis_uops(w).bits.uses_stq)
+                        && !io.core.dis_uops(w).bits.is_fence
+                        && !io.core.dis_uops(w).bits.is_fencei
                         && !io.core.dis_uops(w).bits.exception)
 
     when (dis_mq_val)
     {
-      assert(!io.core.dis_uops(w).bits.sfence.valid)
+      assert(!io.core.dis_uops(w).bits.is_fence)
 
       mcq(mq_enq_idx).valid               := true.B
       mcq(mq_enq_idx).bits.uop            := io.core.dis_uops(w).bits
