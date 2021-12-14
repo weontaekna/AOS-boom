@@ -450,6 +450,11 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     io.core.mcq_full(w)    := mcq_full
     io.core.dis_mcq_idx(w) := mq_enq_idx
 
+    when (mcq_full)
+    {
+      printf("YH+ [%d] MCQ is full\n", io.core.tsc_reg)
+    }
+
     val dis_mq_val = (io.core.dis_uops(w).valid
                         && (io.core.dis_uops(w).bits.uses_ldq || io.core.dis_uops(w).bits.uses_stq)
                         && !io.core.dis_uops(w).bits.exception)
@@ -1828,6 +1833,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   when (reset.asBool || io.core.exception)
   {
     mcq_head := 0.U
+    mcq_tail := 0.U
 
     for (i <- 0 until numMcqEntries)
     {
