@@ -558,9 +558,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   val mcq_load_e = mcq(mcq_load_idx)
 
   val will_fire_bnd_load = Wire(Vec(memWidth, Bool()))
-  //val will_fire_bnd_store = Wire(Vec(memWidth, Bool()))
-
-  //val mcq_load_e = widthMap(w => mcq(mc
 
   val can_fire_bnd_load = widthMap(w => mcq_load_e.valid                &&
                                     //TODO !lrsc_valid                         &&
@@ -1465,7 +1462,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
     when (bnd_load_resp_val(w))
     {
-      printf("YH+ [%d] bnd_load_resp_val(w) is true\n",
+      printf("YH+ [%d] bnd_load_resp_val(%d) is true\n",
               io.core.tsc_reg, w.U)
 
       val mcq_idx = bnd_load_resp_idx(w)
