@@ -1474,12 +1474,12 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       when (bnd_check)
       {
         mcq(mcq_idx).bits.state       := s_done
-        //mcq(mcq_idx).bits.executed    := false.B
+        mcq(mcq_idx).bits.executed    := false.B
 
         printf("YH+ [%d] Passed bounds check! mcq(%d)\n",
                 io.core.tsc_reg, mcq_idx)
       }
-        .elsewhen (count < 4)
+        .elsewhen (count < 4.U)
       {
         mcq(mcq_idx).bits.executed    := false.B
         mcq(mcq_idx).bits.count       := count + 1.U
@@ -1493,8 +1493,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
         printf("YH+ [%d] Failed bounds check! mcq(%d)\n",
                 io.core.tsc_reg, mcq_idx)
-      }
-      
+      } 
     }
   }
 
