@@ -394,7 +394,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
   io.dmem.force_order   := io.core.fence_dmem
   //yh-io.core.fencei_rdy    := !stq_nonempty && io.dmem.ordered
-  io.core.fencei_rdy    := !stq_nonempty && (!mcq_nonempty || bdq_nonempty || lrsc_valid) && io.dmem.ordered //yh+
 
   //-------------------------------------------------------------
   //-------------------------------------------------------------
@@ -667,6 +666,8 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   printf("YH+ [%d] mcq_load_idx: %d\n", io.core.tsc_reg, mcq_load_idx)
 
   val bnd_load_paddr = 65536.U
+
+  io.core.fencei_rdy    := !stq_nonempty && (!mcq_nonempty || !bdq_nonempty || lrsc_valid) && io.dmem.ordered //yh+
 
   //yh+end
 
