@@ -518,18 +518,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     }
   }
 
-
-  //for (i <- 0 until numMcqEntries)
-  //{
-  //  when (mcq(i).valid)
-  //  {
-  //    when (mcq(i).bits.state === s_incCnt) {
-
-  //    } .elsewhen (mcq(i).bits.state === s_fail) {
-  //    }
-  //  }
-  //}
-
   val mcq_head_e  = mcq(mcq_head) // Current MCQ entry to operate with
   var temp_mcq_head = mcq_head
 
@@ -561,8 +549,12 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   val will_fire_bnd_load = Wire(Vec(memWidth, Bool()))
 
   val can_fire_bnd_load = widthMap(w => mcq_load_e.valid                &&
+                                    mcq_load_e.bits.state === s_bndChk  &&
+                                    !mcq_load_e.bits.executed           &&
                                     //TODO !lrsc_valid                         &&
                                     (w == memWidth-1).B)
+
+  printf("YH+ [%d] mcq_load_idx: %d\n", io.core.tsc_reg, mcq_load_idx)
 
   val bnd_load_paddr = 65536.U
 
