@@ -587,7 +587,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       bdq(bq_enq_idx).bits.uop.uses_bdq   := true.B
 
       bdq(bq_enq_idx).bits.addr.valid     := false.B
-      bdq(bq_enq_idx).bits.baddr.valid    := false.B //TODO baddr is needed?
+      //bdq(bq_enq_idx).bits.vaddr.valid    := false.B //TODO baddr is needed?
 
       bdq(bq_enq_idx).bits.executed       := false.B
 
@@ -652,7 +652,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
   val bdq_load_idx = RegNext(AgePriorityEncoder((0 until numBdqEntries).map(i => {
     val e = bdq(i).bits
-    e.state === b_occuChk && !e.executed
+    e.state === b_occChk && !e.executed
   }), bdq_head))
   val bdq_load_e = bdq(bdq_load_idx)
 
