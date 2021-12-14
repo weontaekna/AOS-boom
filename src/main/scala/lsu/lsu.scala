@@ -478,7 +478,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       mcq(mq_enq_idx).bits.count          := 0.U
       mcq(mq_enq_idx).bits.state          := 0.U
 
-      printf("YH+ [%d] Dispatch mcq(%d)\n",
+      printf("YH+ [%d] mcq(%d) Dispatch\n",
               io.core.tsc_reg, mq_enq_idx)
     }
 
@@ -513,8 +513,8 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       mcq(midx).bits.addr.bits    := exe_mem_vaddr(w)
       mcq(midx).bits.state        := Mux(exe_mem_isPACed(w), s_bndChk, s_done) // Go to s_bndChk
 
-      printf("YH+ [%d] Get exe_req(%d) for mcq(%d) vaddr: %x PACed: %d\n",
-              io.core.tsc_reg, w.U, midx, exe_mem_vaddr(w), exe_mem_isPACed(w))
+      printf("YH+ [%d] mcq(%d) exe_req(%d) vaddr: %x PAC: %d PACed: %d\n",
+        io.core.tsc_reg, midx, w.U, exe_mem_vaddr(w), (exe_mem_vaddr(w) >> 45), exe_mem_isPACed(w))
     }
   }
 
@@ -544,7 +544,8 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
     printf("YH+ [%d] Dequeue mcq(%d)\n", io.core.tsc_reg, mcq_head)
 
-    temp_mcq_head = WrapInc(temp_mcq_head, numMcqEntries)
+    temp_mcq_head = Mux(commit_mem, WrapInc(temp_mcq_head, numMcqEntries),
+                                    temp_mcq_head)
   }
 
   mcq_head := temp_mcq_head
@@ -1014,6 +1015,9 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       dmem_req(w).bits.uop            := mcq_load_e.bits.uop
 
       mcq_load_e.bits.executed        := dmem_req_fire(w)
+
+      printf("YH+ [%d] mcq(%d) Send bounds load\n",
+              io.core.tsc_reg, mcq_load_idx)
     }
 
     //-------------------------------------------------------------
@@ -1456,8 +1460,8 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   for (w <- 0 until memWidth) {
     when (io.dmem.resp(w).valid)
     {
-      printf("YH+ [%d] Received RESP(%d) mcq(%d)\n",
-              io.core.tsc_reg, w.U, io.dmem.resp(w).bits.uop.mcq_idx)
+      printf("YH+ [%d] mcq(%d) Received RESP(%d)\n",
+              io.core.tsc_reg, io.dmem.resp(w).bits.uop.mcq_idx, w.U)
     }
 
     when (bnd_load_resp_val(w))
@@ -1473,7 +1477,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
         mcq(mcq_idx).bits.state       := s_done
         mcq(mcq_idx).bits.executed    := false.B
 
-        printf("YH+ [%d] Passed bounds check! mcq(%d)\n",
+        printf("YH+ [%d] mcq(%d) Passed bounds check!\n",
                 io.core.tsc_reg, mcq_idx)
       }
         .elsewhen (count < 4.U)
@@ -1481,14 +1485,14 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
         mcq(mcq_idx).bits.executed    := false.B
         mcq(mcq_idx).bits.count       := count + 1.U
 
-        printf("YH+ [%d] Increase counter mcq(%d)\n",
+        printf("YH+ [%d] mcq(%d) Increase counter\n",
                 io.core.tsc_reg, mcq_idx)
       }
         .otherwise
       {
         mcq(mcq_idx).bits.state       := s_fail
 
-        printf("YH+ [%d] Failed bounds check! mcq(%d)\n",
+        printf("YH+ [%d] mcq(%d) Failed bounds check!\n",
                 io.core.tsc_reg, mcq_idx)
       } 
     }
@@ -1527,7 +1531,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
         val mcq_idx = io.dmem.nack(w).bits.uop.mcq_idx
         mcq(mcq_idx).bits.executed    := false.B
 
-        printf("YH+ [%d] Received NACK mcq(%d)\n", io.core.tsc_reg, mcq_idx)
+        printf("YH+ [%d] mcq(%d) Received NACK\n", io.core.tsc_reg, mcq_idx)
       }
       //+end
     }
