@@ -218,6 +218,7 @@ class MCQEntry(implicit p: Parameters) extends BoomBundle()(p)
   //val baddr               = Valid(UInt(coreMaxAddrBits.W)) // Bound address for HBT
 
   val executed            = Bool() // Bounds load executed committed to memory
+  val committed           = Bool() // committed by ROB
   val signed              = Bool() // Whether the memory address is signed or not
 
   val way                 = UInt(numHbtRows.W) // The way to access in a row of the HBT 
@@ -2089,20 +2090,36 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   val mcq_head_e  = mcq(mcq_head) // Current MCQ entry to operate with
   var temp_mcq_head = mcq_head
 
-  val commit_mcq = mcq_head_e.valid && (mcq_head_e.bits.state === m_done)
-  //val commit_mcq = (mcq_head_e.bits.state === m_done)
-
-  when (commit_mcq)
+  for (w <- 0 until coreWidth)
   {
-    mcq(mcq_head).valid              := false.B
-    mcq(mcq_head).bits.addr.valid    := false.B
-    mcq(mcq_head).bits.executed      := false.B
-    mcq(mcq_head).bits.state         := m_init
+    val commit_mcq = (io.core.commit.valids(w)
+                        && (io.core.commit.uops(w).uses_ldq
+                            || io.core.commit.uops(w).uses_stq)
+                        && !io.core.commit.uops(w).is_fence
+                        && !io.core.commit.uops(w).is_fencei)
 
-    printf("YH+ [%d] mcq(%d) Dequeue\n", io.core.tsc_reg, mcq_head)
+    val dequeue_mcq = (mcq_head_e.valid
+                        && mcq_head_e.bits.committed
+                        && (mcq_head_e.bits.state === m_done))
 
-    temp_mcq_head = Mux(commit_mcq, WrapInc(temp_mcq_head, numMcqEntries),
-                                    temp_mcq_head)
+    val idx = temp_mcq_head
+
+    when (commit_mcq)
+    {
+      mcq(idx).bits.committed := true.B
+    }
+      .elsewhen (dequeue_mcq)
+    {
+      mcq(mcq_head).valid              := false.B
+      mcq(mcq_head).bits.addr.valid    := false.B
+      mcq(mcq_head).bits.executed      := false.B
+      mcq(mcq_head).bits.state         := m_init
+
+      printf("YH+ [%d] mcq(%d) Dequeue\n", io.core.tsc_reg, mcq_head)
+
+      temp_mcq_head = Mux(dequeue_mcq, WrapInc(temp_mcq_head, numMcqEntries),
+                                      temp_mcq_head)
+    }
   }
 
   mcq_head := temp_mcq_head
@@ -2112,26 +2129,44 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   val bdq_head_e  = bdq(bdq_head) // Current MCQ entry to operate with
   var temp_bdq_head = bdq_head
 
-  val commit_bdq = bdq_head_e.valid && (bdq_head_e.bits.state === b_done)
-  //val commit_bdq = (bdq_head_e.bits.state === b_done)
-
-  when (commit_bdq)
+  for (w <- 0 until coreWidth)
   {
-    bdq(bdq_head).valid              := false.B
-    bdq(bdq_head).bits.addr.valid    := false.B
-    bdq(bdq_head).bits.executed      := false.B
-    bdq(bdq_head).bits.state         := b_init
+    val commit_bdq = (io.core.commit.valids(w)
+                        && io.core.commit.uops(w).uses_bdq)    
 
-    printf("YH+ [%d] bdq(%d) Dequeue\n", io.core.tsc_reg, bdq_head)
+    val dequeue_bdq = (bdq_head_e.valid
+                        && bdq_head_e.bits.committed
+                        && (bdq_head_e.bits.state === b_done))
 
-    temp_bdq_head = Mux(commit_bdq, WrapInc(temp_bdq_head, numBdqEntries),
-                                    temp_bdq_head)
+    val idx = temp_bdq_head
+
+    when (commit_bdq) {
+      bdq(idx).bits.committed := true.B
+    }
+      .elsewhen (dequeue_bdq)
+    {
+      bdq(idx).valid              := false.B
+      bdq(idx).bits.addr.valid    := false.B
+      bdq(idx).bits.executed      := false.B
+      bdq(idx).bits.state         := b_init
+
+      printf("YH+ [%d] bdq(%d) Dequeue\n", io.core.tsc_reg, bdq_head)
+
+      temp_bdq_head = Mux(dequeue_bdq, WrapInc(temp_bdq_head, numBdqEntries),
+                                      temp_bdq_head)
+    }
   }
 
   bdq_head := temp_bdq_head
 
   printf("YH+ [%d] bdq_head: %d bdq_tail: %d\n", io.core.tsc_reg, bdq_head, bdq_tail)
 
+
+  //-------------------------------------------------------------
+  //-------------------------------------------------------------
+  // Update CSR stats
+  //-------------------------------------------------------------
+  //-------------------------------------------------------------
   
   when (initWYFY)
   {
