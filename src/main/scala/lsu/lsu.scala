@@ -559,7 +559,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
   val exe_mcq_idx = widthMap(w => exe_req(w).bits.uop.mcq_idx)
   val exe_mcq_vaddr = widthMap(w => exe_req(w).bits.addr)
-  val exe_mcq_isPACed = widthMap(w => (exe_req(w).bits.addr >> 45) != 0.U)
+  val exe_mcq_isPACed = widthMap(w => (exe_req(w).bits.addr >> 45) =/= 0.U)
 
   for (w <- 0 until memWidth)
   {
@@ -649,7 +649,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
   val exe_bdq_idx = widthMap(w => exe_req(w).bits.uop.bdq_idx)
   val exe_bdq_vaddr = widthMap(w => exe_req(w).bits.addr)
-  val exe_bdq_isPACed = widthMap(w => (exe_req(w).bits.addr >> 45) != 0.U)
 
   for (w <- 0 until memWidth)
   {
