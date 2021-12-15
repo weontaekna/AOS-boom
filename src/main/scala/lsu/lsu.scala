@@ -477,33 +477,33 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   val num_mem_req         = Reg(UInt(xLen.W))
   val num_mem_size        = Reg(UInt(xLen.W))
   
-  //enableWYFY              := io.core.wyfy_config.enableWYFY
-  //initWYFY                := io.core.wyfy_config.enableWYFY & !enableWYFY
-  //hbt_base_addr           := io.core.wyfy_config.hbt_base_addr
-  //hbt_num_way             := io.core.wyfy_config.hbt_num_way
+  enableWYFY              := io.core.wyfy_config.enableWYFY
+  initWYFY                := io.core.wyfy_config.enableWYFY & !enableWYFY
+  hbt_base_addr           := io.core.wyfy_config.hbt_base_addr
+  hbt_num_way             := io.core.wyfy_config.hbt_num_way
 
-  //num_signed_inst         := Mux(initWYFY,
-  //                                io.core.wyfy_config.num_signed_inst,
-  //                                num_signed_inst)
-  //num_unsigned_inst       := Mux(initWYFY,
-  //                                io.core.wyfy_config.num_unsigned_inst,
-  //                                num_unsigned_inst)
-  //num_bndstr              := Mux(initWYFY,
-  //                                io.core.wyfy_config.num_bndstr,
-  //                                num_bndstr)
-  //num_bndclr              := Mux(initWYFY,
-  //                                io.core.wyfy_config.num_bndclr,
-  //                                num_bndclr
-  //num_bndsrch             := Mux(initWYFY,
-  //                                io.core.wyfy_config.num_bndsrch,
-  //                                num_bndsrch)
+  num_signed_inst         := Mux(initWYFY,
+                                  io.core.wyfy_config.num_signed_inst,
+                                  num_signed_inst)
+  num_unsigned_inst       := Mux(initWYFY,
+                                  io.core.wyfy_config.num_unsigned_inst,
+                                  num_unsigned_inst)
+  num_bndstr              := Mux(initWYFY,
+                                  io.core.wyfy_config.num_bndstr,
+                                  num_bndstr)
+  num_bndclr              := Mux(initWYFY,
+                                  io.core.wyfy_config.num_bndclr,
+                                  num_bndclr
+  num_bndsrch             := Mux(initWYFY,
+                                  io.core.wyfy_config.num_bndsrch,
+                                  num_bndsrch)
 
-  //num_mem_req             := Mux(initWYFY,
-  //                                io.core.wyfy_config.num_mem_req,
-  //                                num_mem_req)
-  //num_mem_size            := Mux(initWYFY,
-  //                                io.core.wyfy_config.num_mem_size,
-  //                                num_mem_size)
+  num_mem_req             := Mux(initWYFY,
+                                  io.core.wyfy_config.num_mem_req,
+                                  num_mem_req)
+  num_mem_size            := Mux(initWYFY,
+                                  io.core.wyfy_config.num_mem_size,
+                                  num_mem_size)
 
   //num_cache_hit           := Mux(initWYFY,
   //                                io.core.wyfy_config.num_cache_hit,
@@ -517,8 +517,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
   val csr_num_ways = Reg(UInt(coreMaxAddrBits.W))
   csr_num_ways := 4.U // TODO need to set by CSR
-
-  io.core.ht_config
 
   val lrsc_count = RegInit(0.U(log2Ceil(lrscCycles).W))
   val lrsc_valid = Reg(Bool())
