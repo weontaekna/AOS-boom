@@ -447,6 +447,11 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   //-------------------------------------------------------------
   //-------------------------------------------------------------
 
+  when (io.core.dis_uops(w).valid && io.core.dis_uops(w).bits.sfence.valid)
+  {
+    printf("YH+ [%d] Found sfence!\n", io.core.tsc_reg)
+  }
+
   val mcq_nonempty = (0 until numMcqEntries).map{ i => mcq(i).valid }.reduce(_||_) =/= 0.U
   var mq_enq_idx = mcq_tail
   var mcq_full = Bool()
@@ -466,6 +471,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                         && (io.core.dis_uops(w).bits.uses_ldq || io.core.dis_uops(w).bits.uses_stq)
                         && !io.core.dis_uops(w).bits.is_fence
                         && !io.core.dis_uops(w).bits.is_fencei
+                        && !io.core.dis_uops(w).bits.sfence.valid
                         && !io.core.dis_uops(w).bits.exception)
 
     when (dis_mq_val)
@@ -1865,20 +1871,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     }
   }
 
-  //yh+begin
-  when ((mcq(mcq_head).bits.state == 3.U || mcq(mcq_head).bits.state == 4.U).B) {
-      var temp_mcq_head    = mcq_head;
-
-      mcq(mcq_head).valid                 := false.B
-      mcq(mcq_head).bits.addr.valid       := false.B
-      mcq(mcq_head).bits.executed         := false.B
-
-      temp_mcq_head        =   WrapInc(temp_mcq_head, numMcqEntries)
-
-      mcq_head := temp_mcq_head
-  }
-  //yh+end
-
   // -----------------------
   // Hellacache interface
   // We need to time things like a HellaCache would
@@ -2005,12 +1997,23 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     mcq_head := 0.U
     mcq_tail := 0.U
 
+    bdq_head := 0.U
+    bdq_tail := 0.U
+
     for (i <- 0 until numMcqEntries)
     {
       mcq(i).valid            := false.B
       mcq(i).bits.addr.valid  := false.B
       mcq(i).bits.executed    := false.B
       mcq(i).bits.state     := false.B
+    }
+
+    for (i <- 0 until numBdqEntries)
+    {
+      bdq(i).valid            := false.B
+      bdq(i).bits.addr.valid  := false.B
+      bdq(i).bits.executed    := false.B
+      bdq(i).bits.state     := false.B
     }
   }
   //yh+end
