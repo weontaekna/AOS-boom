@@ -2087,9 +2087,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   //-------------------------------------------------------------
   //-------------------------------------------------------------
 
-  val mcq_head_e  = mcq(mcq_head) // Current MCQ entry to operate with
-  var temp_mcq_head = mcq_head
-
   for (w <- 0 until coreWidth)
   {
     val commit_mcq = (io.core.commit.valids(w)
@@ -2098,68 +2095,62 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                         && !io.core.commit.uops(w).is_fence
                         && !io.core.commit.uops(w).is_fencei)
 
-    val dequeue_mcq = (mcq_head_e.valid
-                        && mcq_head_e.bits.committed
-                        && (mcq_head_e.bits.state === m_done))
+    val commit_bdq = (io.core.commit.valids(w)
+                        && io.core.commit.uops(w).uses_bdq)    
 
-    val idx = temp_mcq_head
+
+    val idx = Mux(commit_mcq, io.core.commit.uops(w).bits.mcq_idx
+                  io.core.commit.uops(w).bits.bdq_idx)
 
     when (commit_mcq)
     {
       mcq(idx).bits.committed := true.B
     }
-      .elsewhen (dequeue_mcq)
+      .elsewhen (commit_bdq)
     {
-      mcq(mcq_head).valid              := false.B
-      mcq(mcq_head).bits.addr.valid    := false.B
-      mcq(mcq_head).bits.executed      := false.B
-      mcq(mcq_head).bits.state         := m_init
-
-      printf("YH+ [%d] mcq(%d) Dequeue\n", io.core.tsc_reg, mcq_head)
-
-      temp_mcq_head = Mux(dequeue_mcq, WrapInc(temp_mcq_head, numMcqEntries),
-                                      temp_mcq_head)
+      bdq(idx).bits.committed := true.B
     }
   }
 
-  mcq_head := temp_mcq_head
+  val mcq_head_e  = mcq(mcq_head) // Current MCQ entry to operate with
+  var temp_mcq_head = mcq_head
 
-  printf("YH+ [%d] mcq_head: %d mcq_tail: %d\n", io.core.tsc_reg, mcq_head, mcq_tail)
+  val dequeue_mcq = (mcq_head_e.valid
+                      && mcq_head_e.bits.committed
+                      && (mcq_head_e.bits.state === m_done))
+
+  when (dequeue_mcq)
+  {
+    mcq(mcq_head).valid              := false.B
+    //mcq(mcq_head).bits.addr.valid    := false.B
+    //mcq(mcq_head).bits.executed      := false.B
+    mcq(mcq_head).bits.state         := m_init
+
+    printf("YH+ [%d] mcq(%d) Dequeue\n", io.core.tsc_reg, mcq_head)
+
+    temp_mcq_head = Mux(dequeue_mcq, WrapInc(temp_mcq_head, numMcqEntries),
+                                    temp_mcq_head)
+  }
 
   val bdq_head_e  = bdq(bdq_head) // Current MCQ entry to operate with
   var temp_bdq_head = bdq_head
 
-  for (w <- 0 until coreWidth)
+  val dequeue_bdq = (bdq_head_e.valid
+                      && bdq_head_e.bits.committed
+                      && (bdq_head_e.bits.state === b_done))
+
+  when (dequeue_bdq)
   {
-    val commit_bdq = (io.core.commit.valids(w)
-                        && io.core.commit.uops(w).uses_bdq)    
+    bdq(bdq_head).valid              := false.B
+    //bdq(bdq_head).bits.addr.valid    := false.B
+    //bdq(bdq_head).bits.executed      := false.B
+    bdq(bdq_head).bits.state         := b_init
 
-    val dequeue_bdq = (bdq_head_e.valid
-                        && bdq_head_e.bits.committed
-                        && (bdq_head_e.bits.state === b_done))
+    printf("YH+ [%d] bdq(%d) Dequeue\n", io.core.tsc_reg, bdq_head)
 
-    val idx = temp_bdq_head
-
-    when (commit_bdq) {
-      bdq(idx).bits.committed := true.B
-    }
-      .elsewhen (dequeue_bdq)
-    {
-      bdq(idx).valid              := false.B
-      bdq(idx).bits.addr.valid    := false.B
-      bdq(idx).bits.executed      := false.B
-      bdq(idx).bits.state         := b_init
-
-      printf("YH+ [%d] bdq(%d) Dequeue\n", io.core.tsc_reg, bdq_head)
-
-      temp_bdq_head = Mux(dequeue_bdq, WrapInc(temp_bdq_head, numBdqEntries),
-                                      temp_bdq_head)
-    }
+    temp_bdq_head = Mux(dequeue_bdq, WrapInc(temp_bdq_head, numBdqEntries),
+                                    temp_bdq_head)
   }
-
-  bdq_head := temp_bdq_head
-
-  printf("YH+ [%d] bdq_head: %d bdq_tail: %d\n", io.core.tsc_reg, bdq_head, bdq_tail)
 
 
   //-------------------------------------------------------------
@@ -2173,7 +2164,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     num_signed_inst       := io.core.wyfy_config.num_signed_inst
     num_unsigned_inst     := io.core.wyfy_config.num_unsigned_inst
   }
-    .elsewhen (commit_mcq && mcq(mcq_head).valid)
+    .elsewhen (dequeue_mcq && mcq(mcq_head).valid)
   {
     when (mcq(mcq_head).bits.signed)
     {
@@ -2191,7 +2182,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     num_bndclr            := io.core.wyfy_config.num_bndclr
     num_bndsrch           := io.core.wyfy_config.num_bndsrch
   }
-    .elsewhen (commit_bdq && bdq(bdq_head).valid)
+    .elsewhen (dequeue_bdq && bdq(bdq_head).valid)
   {
     //when (bdq(bdq_head).bits.uop.uopc === )
     //{
@@ -2206,7 +2197,14 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     //  num_bndsrch         := num_bndsrch + 1.U
     //}
   }
-  
+
+  mcq_head := temp_mcq_head
+
+  printf("YH+ [%d] mcq_head: %d mcq_tail: %d\n", io.core.tsc_reg, mcq_head, mcq_tail)
+
+  bdq_head := temp_bdq_head
+
+  printf("YH+ [%d] bdq_head: %d bdq_tail: %d\n", io.core.tsc_reg, bdq_head, bdq_tail)  
   //yh+end
 
 
