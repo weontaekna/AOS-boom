@@ -122,6 +122,16 @@ class LSUCoreIO(implicit p: Parameters) extends BoomBundle()(p)
   val mcq_full    = Output(Vec(coreWidth, Bool()))
   val bdq_full    = Output(Vec(coreWidth, Bool()))
   val wyfy_config = Input(new LSUWYFYConfig)
+
+  val numSignedInst    = Output(UInt(xLen.W))
+  val numUnsignedInst  = Output(UInt(xLen.W))
+  val numBndStr        = Output(UInt(xLen.W))
+  val numBndClr        = Output(UInt(xLen.W))
+  val numBndSrch       = Output(UInt(xLen.W))
+  val numMemReq        = Output(UInt(xLen.W))
+  val numMemSize       = Output(UInt(xLen.W))
+  val numCacheHit      = Output(UInt(xLen.W))
+  val numCacheMiss     = Output(UInt(xLen.W))
   //yh+end
 
   val fp_stdata   = Flipped(Decoupled(new ExeUnitResp(fLen)))
@@ -477,14 +487,24 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
   val num_mem_req         = Reg(UInt(xLen.W))
   val num_mem_size        = Reg(UInt(xLen.W))
+
+  val num_cache_hit       = Reg(UInt(xLen.W))
+  val num_cache_miss      = Reg(UInt(xLen.W))
   
   enableWYFY              := io.core.wyfy_config.enableWYFY
   initWYFY                := io.core.wyfy_config.enableWYFY & !enableWYFY
   hbt_base_addr           := io.core.wyfy_config.hbt_base_addr
   hbt_num_way             := io.core.wyfy_config.hbt_num_way
 
-  //io.core.num_cache_hit   := io.dmem.num_cache_hit
-  //io.core.num_cache_miss  := io.dmem.num_cache_miss
+  io.core.numSignedInst   := num_signed_inst
+  io.core.numUnsignedInst := num_unsigned_inst
+  io.core.numBndStr       := num_bndstr
+  io.core.numBndClr       := num_bndclr
+  io.core.numBndSrch      := num_bndsrch
+  io.core.numMemReq       := num_mem_req
+  io.core.numMemSize      := num_mem_Size
+  io.core.numCacheHit     := num_cache_hit
+  io.core.numCacheMiss    := num_cache_miss
 
   
   //-------------------------------------------------------------
