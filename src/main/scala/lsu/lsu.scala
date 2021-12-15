@@ -450,16 +450,16 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   //-------------------------------------------------------------
   //-------------------------------------------------------------
 
-  for (w <- 0 until coreWidth)
-  {
-    when (io.core.dis_uops(w).valid)
-    {
-      val uop = io.core.dis_uops(w).bits
-        
-      printf("YH+ [%d] Print uop %x %x %x \n",
-        io.core.tsc_reg, uop.uopc, uop.mem_cmd, uop.mem_size)
-    }
-  }
+  //for (w <- 0 until coreWidth)
+  //{
+  //  when (io.core.dis_uops(w).valid)
+  //  {
+  //    val uop = io.core.dis_uops(w).bits
+  //      
+  //    printf("YH+ [%d] Print uop %x %x %x \n",
+  //      io.core.tsc_reg, uop.uopc, uop.mem_cmd, uop.mem_size)
+  //  }
+  //}
 
   val mcq_nonempty = (0 until numMcqEntries).map{ i => mcq(i).valid }.reduce(_||_) =/= 0.U
   var mq_enq_idx = mcq_tail
@@ -484,8 +484,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
     when (dis_mq_val)
     {
-      assert(!io.core.dis_uops(w).bits.is_fence)
-
       mcq(mq_enq_idx).valid               := true.B
       mcq(mq_enq_idx).bits.uop            := io.core.dis_uops(w).bits
       mcq(mq_enq_idx).bits.uop.mem_cmd    := rocket.M_XRD
@@ -513,7 +511,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
   mcq_tail := mq_enq_idx
 
-
   val exe_mcq_val = widthMap(w => exe_req(w).valid
                                     && (exe_req(w).bits.uop.ctrl.is_sta
                                         || exe_req(w).bits.uop.ctrl.is_load))
@@ -524,6 +521,12 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
   for (w <- 0 until memWidth)
   {
+    when (exe_req(w).valid && exe_req(w).bits.uop.ctrl.is_std)
+    {
+      printf("YH+ [%d] mcq(%d) exe_req(%d)\n",
+        io.core.tsc_reg, exe_req(w).bits.uop.mcq_idx, w.U)
+    }
+
     when (exe_mcq_val(w))
     {
       val midx = exe_mcq_idx(w)
@@ -554,14 +557,14 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   //-------------------------------------------------------------
 
   val bdq_nonempty = (0 until numBdqEntries).map{ i => bdq(i).valid }.reduce(_||_) =/= 0.U
-  var bq_enq_idx = mcq_tail
+  var bq_enq_idx = bdq_tail
   var bdq_full = Bool()
 
   for (w <- 0 until coreWidth)
   {
     bdq_full = WrapInc(bq_enq_idx, numBdqEntries) === bdq_head
     io.core.bdq_full(w)    := bdq_full
-    io.core.dis_mcq_idx(w) := mq_enq_idx
+    io.core.dis_bdq_idx(w) := bq_enq_idx
 
     when (bdq_full)
     {
@@ -581,7 +584,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       bdq(bq_enq_idx).bits.uop.uses_bdq   := true.B
 
       bdq(bq_enq_idx).bits.addr.valid     := false.B
-      //bdq(bq_enq_idx).bits.vaddr.valid    := false.B //TODO baddr is needed?
 
       bdq(bq_enq_idx).bits.executed       := false.B
       bdq(bq_enq_idx).bits.committed      := false.B
@@ -618,7 +620,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       bdq(bidx).bits.state        := b_occChk // Go to b_occChk
 
       printf("YH+ [%d] bdq(%d) exe_req(%d) vaddr: %x PAC: %d\n",
-        io.core.tsc_reg, midx, w.U, exe_bdq_vaddr(w), (exe_bdq_vaddr(w) >> 45))
+        io.core.tsc_reg, bidx, w.U, exe_bdq_vaddr(w), (exe_bdq_vaddr(w) >> 45))
     }
   }
 
@@ -1802,6 +1804,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
       when (occ_check)
       {
+        bdq(bdq_idx).bits.uop.mem_cmd := rocket.M_XWR
         bdq(bdq_idx).bits.state       := b_bndStr
         bdq(bdq_idx).bits.executed    := false.B
 
@@ -1979,6 +1982,9 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       mcq(i).bits.uop.br_mask := GetNewBrMask(io.core.brinfo, mcq(i).bits.uop.br_mask)
       when (IsKilledByBranch(io.core.brinfo, mcq(i).bits.uop))
       {
+        printf("YH+ [%d] mcq(%d) Killed by misprediction\n",
+                io.core.tsc_reg, i.U)
+
         mcq(i).valid           := false.B
         mcq(i).bits.addr.valid := false.B
       }
@@ -1992,6 +1998,9 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       bdq(i).bits.uop.br_mask := GetNewBrMask(io.core.brinfo, bdq(i).bits.uop.br_mask)
       when (IsKilledByBranch(io.core.brinfo, bdq(i).bits.uop))
       {
+        printf("YH+ [%d] bdq(%d) Killed by misprediction\n",
+                io.core.tsc_reg, i.U)
+
         bdq(i).valid           := false.B
         bdq(i).bits.addr.valid := false.B
       }
@@ -2001,6 +2010,9 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   //-------------------------------------------------------------
   when (io.core.brinfo.valid && io.core.brinfo.mispredict && !io.core.exception)
   {
+    printf("YH+ [%d] Misprediction mcq_idx: %d bdq_idx: %d\n",
+            io.core.tsc_reg, io.core.brinfo.mcq_idx, io.core.brinfo.bdq_idx)
+
     mcq_tail := io.core.brinfo.mcq_idx
     bdq_tail := io.core.brinfo.bdq_idx
   }
@@ -2191,7 +2203,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       mcq(i).valid            := false.B
       mcq(i).bits.addr.valid  := false.B
       mcq(i).bits.executed    := false.B
-      mcq(i).bits.state     := false.B
+      mcq(i).bits.state       := m_init
     }
 
     for (i <- 0 until numBdqEntries)
@@ -2199,7 +2211,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       bdq(i).valid            := false.B
       bdq(i).bits.addr.valid  := false.B
       bdq(i).bits.executed    := false.B
-      bdq(i).bits.state     := false.B
+      bdq(i).bits.state       := b_init
     }
   }
   //yh+end
