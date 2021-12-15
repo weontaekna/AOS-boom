@@ -502,7 +502,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   io.core.numBndClr       := num_bndclr
   io.core.numBndSrch      := num_bndsrch
   io.core.numMemReq       := num_mem_req
-  io.core.numMemSize      := num_mem_Size
+  io.core.numMemSize      := num_mem_size
   io.core.numCacheHit     := num_cache_hit
   io.core.numCacheMiss    := num_cache_miss
 
