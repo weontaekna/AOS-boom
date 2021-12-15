@@ -447,9 +447,12 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   //-------------------------------------------------------------
   //-------------------------------------------------------------
 
-  when (io.core.dis_uops(w).valid && io.core.dis_uops(w).bits.sfence.valid)
+  for (w <- 0 until coreWidth)
   {
-    printf("YH+ [%d] Found sfence!\n", io.core.tsc_reg)
+    when (io.core.dis_uops(w).valid && io.core.dis_uops(w).bits.sfence.valid)
+    {
+      printf("YH+ [%d] Found sfence!\n", io.core.tsc_reg)
+    }
   }
 
   val mcq_nonempty = (0 until numMcqEntries).map{ i => mcq(i).valid }.reduce(_||_) =/= 0.U
@@ -557,6 +560,9 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   }), mcq_head))
   val mcq_load_e = mcq(mcq_load_idx)
 
+  val mcq_load_val = mcq_load_e.valid
+                      && (mcq_load_e.bits.state === m_bndChk)
+                      && !mcq_load_e.bits.executed
 
   //-------------------------------------------------------------
   //-------------------------------------------------------------
@@ -661,11 +667,19 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   }), bdq_head))
   val bdq_load_e = bdq(bdq_load_idx)
 
+  val bdq_load_val = bdq_load_e.valid
+                      && (bdq_load_e.bits.state === m_occChk)
+                      && !bdq_load_e.bits.executed
+
+  //-------------------------------------------------------------
+  //-------------------------------------------------------------
+  // Bounds Request Generation
+  //-------------------------------------------------------------
+  //-------------------------------------------------------------
+
   val will_fire_bnd_load = Wire(Vec(memWidth, Bool()))
 
-  val can_fire_bnd_load = widthMap(w => mcq_load_e.valid                &&
-                                    mcq_load_e.bits.state === m_bndChk  &&
-                                    !mcq_load_e.bits.executed           &&
+  val can_fire_bnd_load = widthMap(w => (mcq_load_val || bdq_load_val)  &&
                                     !lrsc_valid                         &&
                                     (w == memWidth-1).B)
 
