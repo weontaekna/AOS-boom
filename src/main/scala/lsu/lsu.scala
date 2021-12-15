@@ -482,36 +482,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   hbt_base_addr           := io.core.wyfy_config.hbt_base_addr
   hbt_num_way             := io.core.wyfy_config.hbt_num_way
 
-  //num_signed_inst         := Mux(initWYFY,
-  //                                io.core.wyfy_config.num_signed_inst,
-  //                                num_signed_inst)
-  //num_unsigned_inst       := Mux(initWYFY,
-  //                                io.core.wyfy_config.num_unsigned_inst,
-  //                                num_unsigned_inst)
-  //num_bndstr              := Mux(initWYFY,
-  //                                io.core.wyfy_config.num_bndstr,
-  //                                num_bndstr)
-  //num_bndclr              := Mux(initWYFY,
-  //                                io.core.wyfy_config.num_bndclr,
-  //                                num_bndclr
-  //num_bndsrch             := Mux(initWYFY,
-  //                                io.core.wyfy_config.num_bndsrch,
-  //                                num_bndsrch)
-
-  //num_mem_req             := Mux(initWYFY,
-  //                                io.core.wyfy_config.num_mem_req,
-  //                                num_mem_req)
-  //num_mem_size            := Mux(initWYFY,
-  //                                io.core.wyfy_config.num_mem_size,
-  //                                num_mem_size)
-
-  //num_cache_hit           := Mux(initWYFY,
-  //                                io.core.wyfy_config.num_cache_hit,
-  //                                num_cache_hit)
-  //num_cache_miss          := Mux(initWYFY,
-  //                                io.core.wyfy_config.num_cache_miss,
-  //                                num_cache_miss)
-
   //io.core.num_cache_hit   := io.dmem.num_cache_hit
   //io.core.num_cache_miss  := io.dmem.num_cache_miss
 
@@ -2176,7 +2146,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     num_bndclr            := io.core.wyfy_config.num_bndclr
     num_bndsrch           := io.core.wyfy_config.num_bndsrch
   }
-    .elsewhen (commit_mcq && bdq(bdq_head).valid)
+    .elsewhen (commit_bdq && bdq(bdq_head).valid)
   {
     //when (bdq(bdq_head).bits.uop.uopc === )
     //{
