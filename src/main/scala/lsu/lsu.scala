@@ -728,14 +728,14 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                                     (w == memWidth-1).B)
 
   val bnd_load_pac = Mux(mcq_load_val, (mcq_load_e.bits.addr.bits >> 45),
-                        Mux(bdq_load_val, (bdq_load_e.bits.addr.bits >> 45)))
-  val bnd_load_paddr = (hbt_base_addr | (bnd_load_pac << log2Ceil(hbt_num_way)))
+                        Mux(bdq_load_val, (bdq_load_e.bits.addr.bits >> 45)), 0.U)
+  val bnd_load_paddr = (hbt_base_addr | (bnd_load_pac << 2))
   val bnd_load_uop = Mux(mcq_load_val, mcq_load_e.bits.uop,
                         Mux(bdq_load_val, bdq_load_e.bits.uop, NullMicroOp))
 
   val bnd_store_pac = (bdq_store_e.bits.addr.bits >> 45)
-  val bnd_store_paddr = (hbt_base_addr | (bnd_store_pac << log2Ceil(hbt_num_way)))
-  val bnd_store_uop = bdq_store_e.bits.uop
+  val bnd_store_paddr = (hbt_base_addr | (bnd_store_pac << 2))
+  val bnd_store_uop = Mux(bdq_store_val, bdq_store_e.bits.uop, NullMicroOp)
 
   io.core.fencei_rdy    := !stq_nonempty && (!mcq_nonempty || !bdq_nonempty || lrsc_valid) && io.dmem.ordered //yh+
   //yh+end
@@ -2191,18 +2191,18 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   }
     .elsewhen (dequeue_bdq && bdq(bdq_head).valid)
   {
-    //when (bdq(bdq_head).bits.uop.uopc === )
-    //{
-    //  num_bndstr          := num_bndstr + 1.U
-    //}
-    //  .elsewhen (bdq(bdq_head).bits.uop.uopc === )
-    //{
-    //  num_bndclr          := num_bndclr + 1.U
-    //}
-    //  .elsewhen (bdq(bdq_head).bits.uop.uopc === )
-    //{
-    //  num_bndsrch         := num_bndsrch + 1.U
-    //}
+    when (bdq(bdq_head).bits.uop.uopc === uopBNDSTR)
+    {
+      num_bndstr          := num_bndstr + 1.U
+    }
+      .elsewhen (bdq(bdq_head).bits.uop.uopc === uopBNDCLR)
+    {
+      num_bndclr          := num_bndclr + 1.U
+    }
+      .elsewhen (bdq(bdq_head).bits.uop.uopc === uopBNDSRCH)
+    {
+      num_bndsrch         := num_bndsrch + 1.U
+    }
   }
 
   mcq_head := temp_mcq_head
