@@ -1135,7 +1135,7 @@ class BoomCore(implicit p: Parameters) extends BoomModule
   // New CSR mapping
   //-------------------------------------------------------------
   //-------------------------------------------------------------
-  io.lsu.wyfy_config.enableWYFY         := custom_csrs.baseAddrOfBitmap
+  io.lsu.wyfy_config.enableWYFY         := custom_csrs.enableWYFY
   io.lsu.wyfy_config.hbt_base_addr      := custom_csrs.hbt_base_addr
   io.lsu.wyfy_config.hbt_num_way        := custom_csrs.hbt_num_way
 
