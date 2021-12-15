@@ -727,7 +727,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                                     !lrsc_valid                         &&
                                     (w == memWidth-1).B)
 
-  val bnd_load_pac = Mux(mcq_load_val, (mcq_load_e.bits.addr.bits >> 45)
+  val bnd_load_pac = Mux(mcq_load_val, (mcq_load_e.bits.addr.bits >> 45),
                         Mux(bdq_load_val, (bdq_load_e.bits.addr.bits >> 45)))
   val bnd_load_paddr = (hbt_base_addr | (bnd_load_pac << log2Ceil(hbt_num_way)))
   val bnd_load_uop = Mux(mcq_load_val, mcq_load_e.bits.uop,
