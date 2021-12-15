@@ -2377,4 +2377,4 @@ class ForwardingAgeLogic(num_entries: Int)(implicit p: Parameters) extends BoomM
    }
 
    io.forwarding_val := found_match
-
+}
