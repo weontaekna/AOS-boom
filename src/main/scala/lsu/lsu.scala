@@ -482,28 +482,28 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   hbt_base_addr           := io.core.wyfy_config.hbt_base_addr
   hbt_num_way             := io.core.wyfy_config.hbt_num_way
 
-  num_signed_inst         := Mux(initWYFY,
-                                  io.core.wyfy_config.num_signed_inst,
-                                  num_signed_inst)
-  num_unsigned_inst       := Mux(initWYFY,
-                                  io.core.wyfy_config.num_unsigned_inst,
-                                  num_unsigned_inst)
-  num_bndstr              := Mux(initWYFY,
-                                  io.core.wyfy_config.num_bndstr,
-                                  num_bndstr)
-  num_bndclr              := Mux(initWYFY,
-                                  io.core.wyfy_config.num_bndclr,
-                                  num_bndclr
-  num_bndsrch             := Mux(initWYFY,
-                                  io.core.wyfy_config.num_bndsrch,
-                                  num_bndsrch)
+  //num_signed_inst         := Mux(initWYFY,
+  //                                io.core.wyfy_config.num_signed_inst,
+  //                                num_signed_inst)
+  //num_unsigned_inst       := Mux(initWYFY,
+  //                                io.core.wyfy_config.num_unsigned_inst,
+  //                                num_unsigned_inst)
+  //num_bndstr              := Mux(initWYFY,
+  //                                io.core.wyfy_config.num_bndstr,
+  //                                num_bndstr)
+  //num_bndclr              := Mux(initWYFY,
+  //                                io.core.wyfy_config.num_bndclr,
+  //                                num_bndclr
+  //num_bndsrch             := Mux(initWYFY,
+  //                                io.core.wyfy_config.num_bndsrch,
+  //                                num_bndsrch)
 
-  num_mem_req             := Mux(initWYFY,
-                                  io.core.wyfy_config.num_mem_req,
-                                  num_mem_req)
-  num_mem_size            := Mux(initWYFY,
-                                  io.core.wyfy_config.num_mem_size,
-                                  num_mem_size)
+  //num_mem_req             := Mux(initWYFY,
+  //                                io.core.wyfy_config.num_mem_req,
+  //                                num_mem_req)
+  //num_mem_size            := Mux(initWYFY,
+  //                                io.core.wyfy_config.num_mem_size,
+  //                                num_mem_size)
 
   //num_cache_hit           := Mux(initWYFY,
   //                                io.core.wyfy_config.num_cache_hit,
@@ -2107,7 +2107,9 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   var temp_mcq_head = mcq_head
 
   //val commit_mcq = mcq_head_e.valid && (mcq_head_e.bits.state === m_done)
-  val commit_mcq = (mcq_head_e.bits.state === m_done)
+  val commit_mcq = (IsKilledByBranch(io.core.brinfo, mcq_head_e.bits.uop)
+                    || (mcq_head_e.valid
+                    && (mcq_head_e.bits.state === m_done)))
 
   when (commit_mcq)
   {
@@ -2130,7 +2132,9 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   var temp_bdq_head = bdq_head
 
   //val commit_bdq = bdq_head_e.valid && (bdq_head_e.bits.state === b_done)
-  val commit_bdq = (bdq_head_e.bits.state === b_done)
+  val commit_bdq = (IsKilledByBranch(io.core.brinfo, bdq_head_e.bits.uop)
+                    || (bdq_head_e.valid
+                    && (bdq_head_e.bits.state === b_done)))
 
   when (commit_bdq)
   {
