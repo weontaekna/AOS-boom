@@ -2099,7 +2099,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                         && io.core.commit.uops(w).uses_bdq)    
 
 
-    val idx = Mux(commit_mcq, io.core.commit.uops(w).bits.mcq_idx
+    val idx = Mux(commit_mcq, io.core.commit.uops(w).bits.mcq_idx,
                   io.core.commit.uops(w).bits.bdq_idx)
 
     when (commit_mcq)
