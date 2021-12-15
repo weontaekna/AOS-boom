@@ -121,6 +121,7 @@ class LSUCoreIO(implicit p: Parameters) extends BoomBundle()(p)
 
   val mcq_full    = Output(Vec(coreWidth, Bool()))
   val bdq_full    = Output(Vec(coreWidth, Bool()))
+  val wyfy_config = Input(new LSUWYFYConfig)
   //yh+end
 
   val fp_stdata   = Flipped(Decoupled(new ExeUnitResp(fLen)))
@@ -243,13 +244,12 @@ class BDQEntry(implicit p: Parameters) extends BoomBundle()(p)
   val debug_wb_data       = UInt(xLen.W)
 }
 
-class WYFYConfig(implicit p: Parameters) extends BoomBundle()(p)
+class LSUWYFYConfig(implicit p: Parameters) extends BoomBundle()(p)
 {
   val enableWYFY          = Bool()
-
   val hbt_base_addr       = UInt(coreMaxAddrBits.W)
-
   val hbt_num_way         = UInt(xLen.W)
+
   val num_signed_inst     = UInt(xLen.W)
   val num_unsigned_inst   = UInt(xLen.W)
   val num_bndstr          = UInt(xLen.W)
@@ -259,8 +259,8 @@ class WYFYConfig(implicit p: Parameters) extends BoomBundle()(p)
   val num_mem_req         = UInt(xLen.W)
   val num_mem_size        = UInt(xLen.W)
 
-  val cacheHitCnt         = UInt(xLen.W)
-  val cacheMissCnt        = UInt(xLen.W)
+  val num_cache_hit       = UInt(xLen.W)
+  val num_cache_miss      = UInt(xLen.W)
 }
 //yh+end
 
@@ -287,8 +287,8 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   val bdq_head         = Reg(UInt(bdqAddrSz.W)) 
   val bdq_tail         = Reg(UInt(bdqAddrSz.W))
 
-  val m_init :: m_bndChk :: m_fail :: m_done :: Nil = Enum(4) //yh+
-  val b_init :: b_occChk :: b_bndStr :: b_fail :: b_done :: Nil = Enum(5) //yh+
+  val m_init :: m_bndChk :: m_fail :: m_done :: Nil = Enum(4)
+  val b_init :: b_occChk :: b_bndStr :: b_fail :: b_done :: Nil = Enum(5)
   //yh+end
 
   assert (stq(stq_execute_head).valid ||
@@ -458,8 +458,67 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   }
 
   //yh+begin
+  //-------------------------------------------------------------
+  //-------------------------------------------------------------
+  // CSR Definition
+  //-------------------------------------------------------------
+  //-------------------------------------------------------------
+  val enableWYFY          = Reg(Bool())
+  val initWYFY            = Reg(Bool())
+  val hbt_base_addr       = Reg(UInt(coreMaxAddrBits.W))
+  val hbt_num_way         = Reg(UInt(xLen.W))
+
+  val num_signed_inst     = Reg(UInt(xLen.W))
+  val num_unsigned_inst   = Reg(UInt(xLen.W))
+  val num_bndstr          = Reg(UInt(xLen.W))
+  val num_bndclr          = Reg(UInt(xLen.W))
+  val num_bndsrch         = Reg(UInt(xLen.W))
+
+  val num_mem_req         = Reg(UInt(xLen.W))
+  val num_mem_size        = Reg(UInt(xLen.W))
+  
+  enableWYFY              := io.core.wyfy_config.enableWYFY
+  initWYFY                := io.core.wyfy_config.enableWYFY & !enableWYFY
+  hbt_base_addr           := io.core.wyfy_config.hbt_base_addr
+  hbt_num_way             := io.core.wyfy_config.hbt_num_way
+
+  num_signed_inst         := Mux(initWYFY,
+                                  io.core.wyfy_config.num_signed_inst,
+                                  num_signed_inst)
+  num_unsigned_inst       := Mux(initWYFY,
+                                  io.core.wyfy_config.num_unsigned_inst,
+                                  num_unsigned_inst)
+  num_bndstr              := Mux(initWYFY,
+                                  io.core.wyfy_config.num_bndstr,
+                                  num_bndstr)
+  num_bndclr              := Mux(initWYFY,
+                                  io.core.wyfy_config.num_bndclr,
+                                  num_bndclr
+  num_bndsrch             := Mux(initWYFY,
+                                  io.core.wyfy_config.num_bndsrch,
+                                  num_bndsrch)
+
+  num_mem_req             := Mux(initWYFY,
+                                  io.core.wyfy_config.num_mem_req,
+                                  num_mem_req)
+  num_mem_size            := Mux(initWYFY,
+                                  io.core.wyfy_config.num_mem_size,
+                                  num_mem_size)
+
+  //num_cache_hit           := Mux(initWYFY,
+  //                                io.core.wyfy_config.num_cache_hit,
+  //                                num_cache_hit)
+  //num_cache_miss          := Mux(initWYFY,
+  //                                io.core.wyfy_config.num_cache_miss,
+  //                                num_cache_miss)
+
+  //io.core.num_cache_hit   := io.dmem.num_cache_hit
+  //io.core.num_cache_miss  := io.dmem.num_cache_miss
+
   val csr_num_ways = Reg(UInt(coreMaxAddrBits.W))
   csr_num_ways := 4.U // TODO need to set by CSR
+
+  io.core.ht_config
 
   val lrsc_count = RegInit(0.U(log2Ceil(lrscCycles).W))
   val lrsc_valid = Reg(Bool())
@@ -2006,9 +2065,9 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
         printf("YH+ [%d] mcq(%d) Killed by misprediction\n",
                 io.core.tsc_reg, i.U)
 
-        mcq(i).valid           := false.B
-        mcq(i).bits.addr.valid := false.B
-
+        mcq(i).valid            := false.B
+        mcq(i).bits.addr.valid  := false.B
+        mcq(i).bits.state       := m_done
       }
     }
   }
@@ -2023,8 +2082,9 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
         printf("YH+ [%d] bdq(%d) Killed by misprediction\n",
                 io.core.tsc_reg, i.U)
 
-        bdq(i).valid           := false.B
-        bdq(i).bits.addr.valid := false.B
+        bdq(i).valid            := false.B
+        bdq(i).bits.addr.valid  := false.B
+        bdq(i).bits.state       := b_done
       }
     }
   }
@@ -2048,8 +2108,8 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   val mcq_head_e  = mcq(mcq_head) // Current MCQ entry to operate with
   var temp_mcq_head = mcq_head
 
-  //yh-val commit_mcq = mcq_head_e.valid && (mcq_head_e.bits.state === m_done)
-  val commit_mcq = mcq_head_e.valid && (mcq_head_e.bits.state === m_done)
+  //val commit_mcq = mcq_head_e.valid && (mcq_head_e.bits.state === m_done)
+  val commit_mcq = (mcq_head_e.bits.state === m_done)
 
   when (commit_mcq)
   {
@@ -2317,4 +2377,4 @@ class ForwardingAgeLogic(num_entries: Int)(implicit p: Parameters) extends BoomM
    }
 
    io.forwarding_val := found_match
-}
+
