@@ -449,9 +449,12 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
   for (w <- 0 until coreWidth)
   {
-    when (io.core.dis_uops(w).valid && io.core.dis_uops(w).bits.sfence.valid)
+    when (io.core.dis_uops(w).valid)
     {
-      printf("YH+ [%d] Found sfence!\n", io.core.tsc_reg)
+      val uop = io.core.dis_uops(w).bits
+        
+      printf("YH+ [%d] Print uop %x %x %x \n",
+        io.core.tsc_reg, uop.uopc, uop.mem_cmd, uop.mem_size)
     }
   }
 
@@ -474,7 +477,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                         && (io.core.dis_uops(w).bits.uses_ldq || io.core.dis_uops(w).bits.uses_stq)
                         && !io.core.dis_uops(w).bits.is_fence
                         && !io.core.dis_uops(w).bits.is_fencei
-                        && !io.core.dis_uops(w).bits.sfence.valid
                         && !io.core.dis_uops(w).bits.exception)
 
     when (dis_mq_val)
@@ -560,9 +562,9 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   }), mcq_head))
   val mcq_load_e = mcq(mcq_load_idx)
 
-  val mcq_load_val = mcq_load_e.valid
+  val mcq_load_val = (mcq_load_e.valid
                       && (mcq_load_e.bits.state === m_bndChk)
-                      && !mcq_load_e.bits.executed
+                      && !mcq_load_e.bits.executed)
 
   //-------------------------------------------------------------
   //-------------------------------------------------------------
@@ -667,9 +669,9 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   }), bdq_head))
   val bdq_load_e = bdq(bdq_load_idx)
 
-  val bdq_load_val = bdq_load_e.valid
-                      && (bdq_load_e.bits.state === m_occChk)
-                      && !bdq_load_e.bits.executed
+  val bdq_load_val = (bdq_load_e.valid
+                      && (bdq_load_e.bits.state === b_occChk)
+                      && !bdq_load_e.bits.executed)
 
   //-------------------------------------------------------------
   //-------------------------------------------------------------
@@ -686,6 +688,8 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   printf("YH+ [%d] mcq_load_idx: %d\n", io.core.tsc_reg, mcq_load_idx)
 
   val bnd_load_paddr = 65536.U
+  val bnd_load_uop = Mux(mcq_load_val, mcq_load_e.bits.uop,
+                        Mux(bdq_load_val, bdq_load_e.bits.uop, NullMicroOp))
 
   io.core.fencei_rdy    := !stq_nonempty && (!mcq_nonempty || !bdq_nonempty || lrsc_valid) && io.dmem.ordered //yh+
 
@@ -1129,12 +1133,12 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     {
       dmem_req(w).valid               := true.B
       dmem_req(w).bits.addr           := bnd_load_paddr
-      dmem_req(w).bits.uop            := mcq_load_e.bits.uop
+      dmem_req(w).bits.uop            := bnd_load_uop
 
       mcq_load_e.bits.executed        := dmem_req_fire(w)
 
-      printf("YH+ [%d] mcq(%d) Send bounds load\n",
-              io.core.tsc_reg, mcq_load_idx)
+      printf("YH+ [%d] mcq(%d) Send bounds load paddr: %x\n",
+              io.core.tsc_reg, mcq_load_idx, bnd_load_paddr)
     }
 
     //-------------------------------------------------------------
