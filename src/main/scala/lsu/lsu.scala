@@ -2099,15 +2099,17 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                         && io.core.commit.uops(w).uses_bdq)    
 
 
-    val idx = Mux(commit_mcq, io.core.commit.uops(w).bits.mcq_idx,
-                  io.core.commit.uops(w).bits.bdq_idx)
+    val idx = Mux(commit_mcq, io.core.commit.uops(w).mcq_idx,
+                  io.core.commit.uops(w).bdq_idx)
 
     when (commit_mcq)
     {
+      printf("YH+ [%d] mcq(%d) Committed\n", io.core.tsc_reg, io.core.commit.uops(w).mcq_idx)
       mcq(idx).bits.committed := true.B
     }
       .elsewhen (commit_bdq)
     {
+      printf("YH+ [%d] bdq(%d) Committed\n", io.core.tsc_reg, io.core.commit.uops(w).bdq_idx)
       bdq(idx).bits.committed := true.B
     }
   }
