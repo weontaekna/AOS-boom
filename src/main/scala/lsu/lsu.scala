@@ -523,8 +523,8 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   {
     when (exe_req(w).valid && exe_req(w).bits.uop.ctrl.is_std)
     {
-      printf("YH+ [%d] mcq(%d) exe_req(%d)\n",
-        io.core.tsc_reg, exe_req(w).bits.uop.mcq_idx, w.U)
+      printf("YH+ [%d] mcq(%d) exe_req(%d) vaddr: %x\n",
+        io.core.tsc_reg, exe_req(w).bits.uop.mcq_idx, w.U, exe_req(w).bits.addr)
     }
 
     when (exe_mcq_val(w))
