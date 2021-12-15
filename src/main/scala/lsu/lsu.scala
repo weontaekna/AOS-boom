@@ -515,9 +515,12 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   //io.core.num_cache_hit   := io.dmem.num_cache_hit
   //io.core.num_cache_miss  := io.dmem.num_cache_miss
 
-  val csr_num_ways = Reg(UInt(coreMaxAddrBits.W))
-  csr_num_ways := 4.U // TODO need to set by CSR
-
+  
+  //-------------------------------------------------------------
+  //-------------------------------------------------------------
+  // LrSc Count
+  //-------------------------------------------------------------
+  //-------------------------------------------------------------
   val lrsc_count = RegInit(0.U(log2Ceil(lrscCycles).W))
   val lrsc_valid = Reg(Bool())
   lrsc_valid := lrsc_count > 0.U // block memory access by branch
@@ -1855,7 +1858,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
         printf("YH+ [%d] mcq(%d) Passed bounds check!\n",
                 io.core.tsc_reg, mcq_idx)
       }
-        .elsewhen (count < csr_num_ways)
+        .elsewhen (count < hbt_num_way)
       {
         mcq(mcq_idx).bits.executed    := false.B
         mcq(mcq_idx).bits.count       := count + 1.U
@@ -1889,7 +1892,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
         printf("YH+ [%d] bdq(%d) Passed occupancy check!\n",
                 io.core.tsc_reg, bdq_idx)
       }
-        .elsewhen (count < csr_num_ways)
+        .elsewhen (count < hbt_num_way)
       {
         bdq(bdq_idx).bits.executed    := false.B
         bdq(bdq_idx).bits.count       := count + 1.U
@@ -2107,9 +2110,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   var temp_mcq_head = mcq_head
 
   //val commit_mcq = mcq_head_e.valid && (mcq_head_e.bits.state === m_done)
-  val commit_mcq = (IsKilledByBranch(io.core.brinfo, mcq_head_e.bits.uop)
-                    || (mcq_head_e.valid
-                    && (mcq_head_e.bits.state === m_done)))
+  val commit_mcq = (mcq_head_e.bits.state === m_done)
 
   when (commit_mcq)
   {
@@ -2132,9 +2133,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   var temp_bdq_head = bdq_head
 
   //val commit_bdq = bdq_head_e.valid && (bdq_head_e.bits.state === b_done)
-  val commit_bdq = (IsKilledByBranch(io.core.brinfo, bdq_head_e.bits.uop)
-                    || (bdq_head_e.valid
-                    && (bdq_head_e.bits.state === b_done)))
+  val commit_bdq = (bdq_head_e.bits.state === b_done)
 
   when (commit_bdq)
   {
@@ -2152,6 +2151,47 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   bdq_head := temp_bdq_head
 
   printf("YH+ [%d] bdq_head: %d bdq_tail: %d\n", io.core.tsc_reg, bdq_head, bdq_tail)
+
+  
+  when (initWYFY)
+  {
+    num_signed_inst       := io.core.wyfy_config.num_signed_inst
+    num_unsigned_inst     := io.core.wyfy_config.num_unsigned_inst
+  }
+    .elsewhen (commit_mcq && mcq(mcq_head).valid)
+  {
+    when (mcq(mcq_head).bits.signed)
+    {
+      num_signed_inst     := num_signed_inst + 1.U
+    }
+      .otherwise
+    {
+      num_unsigned_inst   := num_unsigned_inst + 1.U
+    }
+  }
+
+  when (initWYFY)
+  {
+    num_bndstr            := io.core.wyfy_config.num_bndstr
+    num_bndclr            := io.core.wyfy_config.num_bndclr
+    num_bndsrch           := io.core.wyfy_config.num_bndsrch
+  }
+    .elsewhen (commit_mcq && bdq(bdq_head).valid)
+  {
+    //when (bdq(bdq_head).bits.uop.uopc === )
+    //{
+    //  num_bndstr          := num_bndstr + 1.U
+    //}
+    //  .elsewhen (bdq(bdq_head).bits.uop.uopc === )
+    //{
+    //  num_bndclr          := num_bndclr + 1.U
+    //}
+    //  .elsewhen (bdq(bdq_head).bits.uop.uopc === )
+    //{
+    //  num_bndsrch         := num_bndsrch + 1.U
+    //}
+  }
+  
   //yh+end
 
 
