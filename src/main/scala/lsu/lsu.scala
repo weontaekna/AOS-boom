@@ -555,9 +555,9 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       mcq(mq_enq_idx).bits.uop.uses_mcq   := true.B
 
       mcq(mq_enq_idx).bits.addr.valid     := false.B
-      //mcq(mq_enq_idx).bits.baddr.valid    := false.B //TODO baddr is needed?
 
       mcq(mq_enq_idx).bits.executed       := false.B
+      mcq(mq_enq_idx).bits.committed      := false.B
       mcq(mq_enq_idx).bits.signed         := false.B
 
       mcq(mq_enq_idx).bits.way            := 0.U
