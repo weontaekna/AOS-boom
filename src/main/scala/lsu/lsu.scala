@@ -208,6 +208,7 @@ class MCQEntry(implicit p: Parameters) extends BoomBundle()(p)
   val baddr               = Valid(UInt(coreMaxAddrBits.W)) // Bound address for HBT
 
   val executed            = Bool() // Bounds load executed committed to memory
+  val signed              = Bool() // Whether the memory address is signed or not
 
   val way                 = UInt(numHbtRows.W) // The way to access in a row of the HBT 
   var count               = UInt(numHbtRows.W) // Count of failed attempts to access in a bounds-checking operation
@@ -500,17 +501,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   // MCQ Entry Stage
   //-------------------------------------------------------------
   //-------------------------------------------------------------
-
-  //for (w <- 0 until coreWidth)
-  //{
-  //  when (io.core.dis_uops(w).valid)
-  //  {
-  //    val uop = io.core.dis_uops(w).bits
-  //      
-  //    printf("YH+ [%d] Print uop %x %x %x \n",
-  //      io.core.tsc_reg, uop.uopc, uop.mem_cmd, uop.mem_size)
-  //  }
-  //}
 
   val mcq_nonempty = (0 until numMcqEntries).map{ i => mcq(i).valid }.reduce(_||_) =/= 0.U
   var mq_enq_idx = mcq_tail

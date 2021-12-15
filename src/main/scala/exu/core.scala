@@ -1128,6 +1128,30 @@ class BoomCore(implicit p: Parameters) extends BoomModule
     fp_pipeline.io.debug_tsc_reg := debug_tsc_reg
   }
 
+
+  //yh+begin
+  //-------------------------------------------------------------
+  //-------------------------------------------------------------
+  // New CSR mapping
+  //-------------------------------------------------------------
+  //-------------------------------------------------------------
+  io.lsu.wyfy_config.enableWYFY         := custom_csrs.baseAddrOfBitmap
+  io.lsu.wyfy_config.hbt_base_addr      := custom_csrs.hbt_base_addr
+  io.lsu.wyfy_config.hbt_num_way        := custom_csrs.hbt_num_way
+
+  io.lsu.wyfy_config.num_signed_inst    := custom_csrs.num_signed_inst
+  io.lsu.wyfy_config.num_unsigned_inst  := custom_csrs.num_unsigned_inst
+  io.lsu.wyfy_config.num_bndstr         := custom_csrs.num_bndstr
+  io.lsu.wyfy_config.num_bndclr         := custom_csrs.num_bndclr
+  io.lsu.wyfy_config.num_bndsrch        := custom_csrs.num_bndsrch
+
+  io.lsu.wyfy_config.num_mem_req        := custom_csrs.num_mem_req
+  io.lsu.wyfy_config.num_mem_size       := custom_csrs.num_mem_size
+
+  io.lsu.wyfy_config.num_cache_hit      := custom_csrs.num_cache_hit
+  io.lsu.wyfy_config.num_cache_miss     := custom_csrs.num_cache_miss
+  //yh+end
+
   //-------------------------------------------------------------
   //-------------------------------------------------------------
   // **** Handle Cycle-by-Cycle Printouts ****
