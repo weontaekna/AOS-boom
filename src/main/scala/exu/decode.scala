@@ -264,13 +264,17 @@ object XDecode extends DecodeConstants
   AMOMINU_D->List(Y, N, X, uopAMO_AG, IQT_MEM, FU_MEM, RT_FIX, RT_FIX, RT_FIX, N, IS_X, N, Y, Y, N, N, M_XA_MINU,0.U,N, N, N, N, N, Y, Y, CSR.N),
   AMOMAX_D-> List(Y, N, X, uopAMO_AG, IQT_MEM, FU_MEM, RT_FIX, RT_FIX, RT_FIX, N, IS_X, N, Y, Y, N, N, M_XA_MAX, 0.U,N, N, N, N, N, Y, Y, CSR.N),
   AMOMAXU_D->List(Y, N, X, uopAMO_AG, IQT_MEM, FU_MEM, RT_FIX, RT_FIX, RT_FIX, N, IS_X, N, Y, Y, N, N, M_XA_MAXU,0.U,N, N, N, N, N, Y, Y, CSR.N),
-
+  //yh+begin
+  PACMA   -> List(Y, N, X, uopPACMA,  IQT_INT, FU_ALU, RT_FIX, RT_FIX, RT_FIX, N, IS_I, N, N, N, N, N, M_X,      1.U,N, N, N, N, N, N, N, CSR.N),
+  XPACM   -> List(Y, N, X, uopXPACM,  IQT_INT, FU_ALU, RT_FIX, RT_FIX, RT_FIX, N, IS_I, N, N, N, N, N, M_X,      1.U,N, N, N, N, N, N, N, CSR.N),
+  BNDSTR  -> List(Y, N, X, uopBNDSTR, IQT_MEM, FU_MEM, RT_X  , RT_FIX, RT_FIX, N, IS_S, N, N, N, N, N, M_XRD,    0.U,N, N, N, N, N, N, N, CSR.N),
+  BNDCLR  -> List(Y, N, X, uopBNDCLR, IQT_MEM, FU_MEM, RT_X  , RT_FIX, RT_FIX, N, IS_S, N, N, N, N, N, M_XRD,    0.U,N, N, N, N, N, N, N, CSR.N),
+  BNDSRCH -> List(Y, N, X, uopBNDSRCH,IQT_MEM, FU_MEM, RT_X  , RT_FIX, RT_FIX, N, IS_S, N, N, N, N, N, M_XRD,    0.U,N, N, N, N, N, N, N, CSR.N),
+  //yh+end
   LR_W    -> List(Y, N, X, uopLD    , IQT_MEM, FU_MEM, RT_FIX, RT_FIX, RT_X  , N, IS_X, Y, N, N, N, N, M_XLR   , 0.U,N, N, N, N, N, Y, Y, CSR.N),
   LR_D    -> List(Y, N, X, uopLD    , IQT_MEM, FU_MEM, RT_FIX, RT_FIX, RT_X  , N, IS_X, Y, N, N, N, N, M_XLR   , 0.U,N, N, N, N, N, Y, Y, CSR.N),
   SC_W    -> List(Y, N, X, uopAMO_AG, IQT_MEM, FU_MEM, RT_FIX, RT_FIX, RT_FIX, N, IS_X, N, Y, Y, N, N, M_XSC   , 0.U,N, N, N, N, N, Y, Y, CSR.N),
   SC_D    -> List(Y, N, X, uopAMO_AG, IQT_MEM, FU_MEM, RT_FIX, RT_FIX, RT_FIX, N, IS_X, N, Y, Y, N, N, M_XSC   , 0.U,N, N, N, N, N, Y, Y, CSR.N)
-  //yh+begin
-  //yh+end
   )
 }
 
@@ -541,8 +545,12 @@ class DecodeUnit(implicit p: Parameters) extends BoomModule
   uop.mem_signed := !inst(14)
   uop.uses_ldq   := cs.uses_ldq
   uop.uses_stq   := cs.uses_stq
-  uop.uses_mcq   := false.B //yh+ will be set when generating mem req
-  uop.uses_bdq   := false.B //yh+ TODO
+  //yh+begin
+  uop.uses_mcq   := false.B // will be set when generating mem req
+  uop.uses_bdq   := ((cs.uopc === uopBNDSTR)
+                      || (cs.uopc === uopBNDCLR)
+                      || (cs.uopc === uopBNDSRCH))
+  //yh+end
   uop.is_amo     := cs.is_amo
   uop.is_fence   := cs.is_fence
   uop.is_fencei  := cs.is_fencei

@@ -215,7 +215,6 @@ class MCQEntry(implicit p: Parameters) extends BoomBundle()(p)
     with HasBoomUOP
 {
   val addr                = Valid(UInt(coreMaxAddrBits.W)) // Pointer adress of instruction
-  //val baddr               = Valid(UInt(coreMaxAddrBits.W)) // Bound address for HBT
 
   val executed            = Bool() // Bounds load executed committed to memory
   val committed           = Bool() // committed by ROB
@@ -223,15 +222,7 @@ class MCQEntry(implicit p: Parameters) extends BoomBundle()(p)
 
   val way                 = UInt(numHbtRows.W) // The way to access in a row of the HBT 
   var count               = UInt(numHbtRows.W) // Count of failed attempts to access in a bounds-checking operation
-  val state               = UInt(4.W) // curr state of mcq
-  // 0 : init
-  // 1 : bndchk
-  // 2 : incbnd
-  // 3 : done
-  // 4 : fail
-  // 5 : bndset
-              
-  val debug_wb_data       = UInt(xLen.W)
+  val state               = UInt(3.W) // curr state of mcq
 }    
 
 class BDQEntry(implicit p: Parameters) extends BoomBundle()(p)
@@ -245,15 +236,7 @@ class BDQEntry(implicit p: Parameters) extends BoomBundle()(p)
 
   val way                 = UInt(numHbtRows.W) // The way to access in a row of the HBT 
   var count               = UInt(numHbtRows.W) // Count of failed attempts to access in a bounds-checking operation
-  val state               = UInt(4.W) // curr state of bdq
-  // 0 : init
-  // 1 : bndchk
-  // 2 : incbnd
-  // 3 : done
-  // 4 : fail
-  // 5 : bndset
-              
-  val debug_wb_data       = UInt(xLen.W)
+  val state               = UInt(3.W) // curr state of bdq
 }
 
 class LSUWYFYConfig(implicit p: Parameters) extends BoomBundle()(p)
@@ -729,12 +712,12 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
   val bnd_load_pac = Mux(mcq_load_val, (mcq_load_e.bits.addr.bits >> 45),
                         Mux(bdq_load_val, (bdq_load_e.bits.addr.bits >> 45), 0.U))
-  val bnd_load_paddr = (hbt_base_addr | (bnd_load_pac << 2))
+  val bnd_load_paddr = (hbt_base_addr | (bnd_load_pac << 2) | (count << 3))
   val bnd_load_uop = Mux(mcq_load_val, mcq_load_e.bits.uop,
                         Mux(bdq_load_val, bdq_load_e.bits.uop, NullMicroOp))
 
   val bnd_store_pac = (bdq_store_e.bits.addr.bits >> 45)
-  val bnd_store_paddr = (hbt_base_addr | (bnd_store_pac << 2))
+  val bnd_store_paddr = (hbt_base_addr | (bnd_store_pac << 2) (count << 3))
   val bnd_store_uop = Mux(bdq_store_val, bdq_store_e.bits.uop, NullMicroOp)
 
   io.core.fencei_rdy    := !stq_nonempty && (!mcq_nonempty || !bdq_nonempty || lrsc_valid) && io.dmem.ordered //yh+
