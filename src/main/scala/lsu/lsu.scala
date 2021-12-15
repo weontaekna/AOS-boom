@@ -712,12 +712,14 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
   val bnd_load_pac = Mux(mcq_load_val, (mcq_load_e.bits.addr.bits >> 45),
                         Mux(bdq_load_val, (bdq_load_e.bits.addr.bits >> 45), 0.U))
-  val bnd_load_paddr = (hbt_base_addr | (bnd_load_pac << 2) | (bnd_load_e.bits.count << 3))
+  val bnd_load_count = Mux(mcq_load_val, mcq_load_e.bits.count,
+                        Mux(bdq_load_val, bdq_load_e.bits.count))
+  val bnd_load_paddr = (hbt_base_addr | (bnd_load_pac << 2) | (bnd_load_count << 3))
   val bnd_load_uop = Mux(mcq_load_val, mcq_load_e.bits.uop,
                         Mux(bdq_load_val, bdq_load_e.bits.uop, NullMicroOp))
 
   val bnd_store_pac = (bdq_store_e.bits.addr.bits >> 45)
-  val bnd_store_paddr = (hbt_base_addr | (bnd_store_pac << 2) (bnd_store_e.bits.count << 3))
+  val bnd_store_paddr = (hbt_base_addr | (bnd_store_pac << 2) (bdq_store_e.bits.count << 3))
   val bnd_store_uop = Mux(bdq_store_val, bdq_store_e.bits.uop, NullMicroOp)
 
   io.core.fencei_rdy    := !stq_nonempty && (!mcq_nonempty || !bdq_nonempty || lrsc_valid) && io.dmem.ordered //yh+
