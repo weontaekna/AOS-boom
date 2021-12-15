@@ -127,6 +127,103 @@ class BoomCustomCSRs(implicit p: Parameters) extends freechips.rocketchip.tile.C
     Some(CustomCSR(chickenCSRId, mask, Some(init)))
   }
   def disableOOO = getOrElse(chickenCSR, _.value(3), true.B)
+
+  //yh+begin
+  override def wyfyConfigCSR = {
+    val params = tileParams.core.asInstanceOf[BoomCoreParams]
+    var mask = BigInt(0)
+    mask = ~mask
+    val init = BigInt(0x0)
+    Some(CustomCSR(wyfyConfigCSRId, mask, Some(init)))
+  }
+
+  override def hbtBaseAddrCSR = {
+    val params = tileParams.core.asInstanceOf[BoomCoreParams]
+    var mask = BigInt(0)
+    mask = ~mask
+    val init = BigInt(0x0)
+    Some(CustomCSR(hbtBaseAddrCSRId, mask, Some(init)))
+  }
+
+  override def hbtNumWayCSR = {
+    val params = tileParams.core.asInstanceOf[BoomCoreParams]
+    var mask = BigInt(0)
+    mask = ~mask
+    val init = BigInt(0x0)
+    Some(CustomCSR(hbtNumWayCSRId, mask, Some(init)))
+  }
+
+  override def numSignedInstCSR = {
+    val params = tileParams.core.asInstanceOf[BoomCoreParams]
+    var mask = BigInt(0)
+    mask = ~mask
+    val init = BigInt(0x0)
+    Some(CustomCSR(numSignedInstCSRId, mask, Some(init)))
+  }
+
+  override def numUnsignedInstCSR = {
+    val params = tileParams.core.asInstanceOf[BoomCoreParams]
+    var mask = BigInt(0)
+    mask = ~mask
+    val init = BigInt(0x0)
+    Some(CustomCSR(numUnsignedInstCSRId, mask, Some(init)))
+  }
+
+  override def numBndStrCSR = {
+    val params = tileParams.core.asInstanceOf[BoomCoreParams]
+    var mask = BigInt(0)
+    mask = ~mask
+    val init = BigInt(0x0)
+    Some(CustomCSR(numBndStrCSRId, mask, Some(init)))
+  }
+
+  override def numBndClrCSR = {
+    val params = tileParams.core.asInstanceOf[BoomCoreParams]
+    var mask = BigInt(0)
+    mask = ~mask
+    val init = BigInt(0x0)
+    Some(CustomCSR(numBndClrCSRId, mask, Some(init)))
+  }
+
+  override def numBndSrchCSR = {
+    val params = tileParams.core.asInstanceOf[BoomCoreParams]
+    var mask = BigInt(0)
+    mask = ~mask
+    val init = BigInt(0x0)
+    Some(CustomCSR(numBndSrchCSRId, mask, Some(init)))
+  }
+
+  override def numMemReqCSR = {
+    val params = tileParams.core.asInstanceOf[BoomCoreParams]
+    var mask = BigInt(0)
+    mask = ~mask
+    val init = BigInt(0x0)
+    Some(CustomCSR(numMemReqCSRId, mask, Some(init)))
+  }
+
+  override def numMemSizeCSR = {
+    val params = tileParams.core.asInstanceOf[BoomCoreParams]
+    var mask = BigInt(0)
+    mask = ~mask
+    val init = BigInt(0x0)
+    Some(CustomCSR(numMemSizeCSRId, mask, Some(init)))
+  }
+
+  override def numCacheHitCSR = {
+    val params = tileParams.core.asInstanceOf[BoomCoreParams]
+    var mask = BigInt(0)
+    mask = ~mask
+    val init = BigInt(0x0)
+    Some(CustomCSR(numCacheHitCSRId, mask, Some(init)))
+  }
+
+  override def numCacheMissCSR = {
+    val params = tileParams.core.asInstanceOf[BoomCoreParams]
+    var mask = BigInt(0)
+    mask = ~mask
+    val init = BigInt(0x0)
+    Some(CustomCSR(numCacheMissCSRId, mask, Some(init)))
+  }
 }
 
 /**

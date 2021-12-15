@@ -205,7 +205,7 @@ class MCQEntry(implicit p: Parameters) extends BoomBundle()(p)
     with HasBoomUOP
 {
   val addr                = Valid(UInt(coreMaxAddrBits.W)) // Pointer adress of instruction
-  val baddr               = Valid(UInt(coreMaxAddrBits.W)) // Bound address for HBT
+  //val baddr               = Valid(UInt(coreMaxAddrBits.W)) // Bound address for HBT
 
   val executed            = Bool() // Bounds load executed committed to memory
   val signed              = Bool() // Whether the memory address is signed or not
@@ -534,9 +534,10 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       mcq(mq_enq_idx).bits.uop.uses_mcq   := true.B
 
       mcq(mq_enq_idx).bits.addr.valid     := false.B
-      mcq(mq_enq_idx).bits.baddr.valid    := false.B //TODO baddr is needed?
+      //mcq(mq_enq_idx).bits.baddr.valid    := false.B //TODO baddr is needed?
 
       mcq(mq_enq_idx).bits.executed       := false.B
+      mcq(mq_enq_idx).bits.signed         := false.B
 
       mcq(mq_enq_idx).bits.way            := 0.U
       mcq(mq_enq_idx).bits.count          := 0.U
