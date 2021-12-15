@@ -149,7 +149,7 @@ class BoomCustomCSRs(implicit p: Parameters) extends freechips.rocketchip.tile.C
     val params = tileParams.core.asInstanceOf[BoomCoreParams]
     var mask = BigInt(0)
     mask = ~mask
-    val init = BigInt(0x0)
+    val init = BigInt(0x4)
     Some(CustomCSR(hbtNumWayCSRId, mask, Some(init)))
   }
 
