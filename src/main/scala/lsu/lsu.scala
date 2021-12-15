@@ -115,7 +115,7 @@ class LSUCoreIO(implicit p: Parameters) extends BoomBundle()(p)
   val ldq_full    = Output(Vec(coreWidth, Bool()))
   val stq_full    = Output(Vec(coreWidth, Bool()))
 
-  //yh+Begin
+  //yh+begin
   val dis_mcq_idx = Output(Vec(coreWidth, UInt(mcqAddrSz.W)))
   val dis_bdq_idx = Output(Vec(coreWidth, UInt(bdqAddrSz.W)))
 

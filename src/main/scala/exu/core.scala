@@ -1151,7 +1151,7 @@ class BoomCore(implicit p: Parameters) extends BoomModule
   io.lsu.wyfy_config.num_cache_hit      := custom_csrs.num_cache_hit
   io.lsu.wyfy_config.num_cache_miss     := custom_csrs.num_cache_miss
 
-  csr.io.wyfyConfig         := custom_csrs.wyfyConfig
+  csr.io.wyfyConfig         := custom_csrs.enableWYFY
   csr.io.hbtBaseAddr        := custom_csrs.hbtBaseAddr
   csr.io.hbtNumWay          := custom_csrs.hbtNumWay
 
