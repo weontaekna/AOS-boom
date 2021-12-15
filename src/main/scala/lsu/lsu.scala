@@ -226,8 +226,8 @@ class BDQEntry(implicit p: Parameters) extends BoomBundle()(p)
   val addr                = Valid(UInt(coreMaxAddrBits.W)) // Pointer adress of instruction
   val data                = Valid(UInt(xLen.W))
 
-  val committed           = Bool() // committed by ROB
   val executed            = Bool() // Bounds load executed committed to memory
+  val committed           = Bool() // committed by ROB
 
   val way                 = UInt(numHbtRows.W) // The way to access in a row of the HBT 
   var count               = UInt(numHbtRows.W) // Count of failed attempts to access in a bounds-checking operation
@@ -437,6 +437,9 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   }
 
   //yh+begin
+  val csr_num_ways = Reg(UInt(coreMaxAddrBits.W))
+  csr_num_ways := 4.U // TODO need to set by CSR
+
   val lrsc_count = RegInit(0.U(log2Ceil(lrscCycles).W))
   val lrsc_valid = Reg(Bool())
   lrsc_valid := lrsc_count > 0.U // block memory access by branch
@@ -534,28 +537,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     }
   }
 
-  val mcq_head_e  = mcq(mcq_head) // Current MCQ entry to operate with
-  var temp_mcq_head = mcq_head
-
-  val commit_mem = mcq_head_e.valid && (mcq_head_e.bits.state === m_done)
-
-  when (commit_mem)
-  {
-    mcq(mcq_head).valid              := false.B
-    mcq(mcq_head).bits.addr.valid    := false.B
-    mcq(mcq_head).bits.executed      := false.B
-    mcq(mcq_head).bits.state         := m_init
-
-    printf("YH+ [%d] Dequeue mcq(%d)\n", io.core.tsc_reg, mcq_head)
-
-    temp_mcq_head = Mux(commit_mem, WrapInc(temp_mcq_head, numMcqEntries),
-                                    temp_mcq_head)
-  }
-
-  mcq_head := temp_mcq_head
-
-  printf("YH+ [%d] mcq_head: %d mcq_tail: %d\n", io.core.tsc_reg, mcq_head, mcq_tail)
-
   val mcq_load_idx = RegNext(AgePriorityEncoder((0 until numMcqEntries).map(i => {
     val e = mcq(i).bits
     e.state === m_bndChk && !e.executed
@@ -603,6 +584,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       //bdq(bq_enq_idx).bits.vaddr.valid    := false.B //TODO baddr is needed?
 
       bdq(bq_enq_idx).bits.executed       := false.B
+      bdq(bq_enq_idx).bits.committed      := false.B
 
       bdq(bq_enq_idx).bits.way            := 0.U
       bdq(bq_enq_idx).bits.count          := 0.U
@@ -618,7 +600,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
   bdq_tail := bq_enq_idx
 
-
   val exe_bdq_val = widthMap(w => exe_req(w).valid
                                     && exe_req(w).bits.uop.uses_bdq)
 
@@ -630,38 +611,16 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   {
     when (exe_bdq_val(w))
     {
-      val midx = exe_bdq_idx(w)
+      val bidx = exe_bdq_idx(w)
 
-      mcq(midx).bits.addr.valid   := true.B
-      mcq(midx).bits.addr.bits    := exe_bdq_vaddr(w)
-      mcq(midx).bits.state        := Mux(exe_bdq_isPACed(w), m_bndChk, m_done) // Go to m_bndChk
+      bdq(bidx).bits.addr.valid   := true.B
+      bdq(bidx).bits.addr.bits    := exe_bdq_vaddr(w)
+      bdq(bidx).bits.state        := b_occChk // Go to b_occChk
 
-      printf("YH+ [%d] bdq(%d) exe_req(%d) vaddr: %x PAC: %d PACed: %d\n",
-        io.core.tsc_reg, midx, w.U, exe_bdq_vaddr(w), (exe_bdq_vaddr(w) >> 45), exe_bdq_isPACed(w))
+      printf("YH+ [%d] bdq(%d) exe_req(%d) vaddr: %x PAC: %d\n",
+        io.core.tsc_reg, midx, w.U, exe_bdq_vaddr(w), (exe_bdq_vaddr(w) >> 45))
     }
   }
-
-  val bdq_head_e  = bdq(bdq_head) // Current MCQ entry to operate with
-  var temp_bdq_head = bdq_head
-
-  val commit_bdq = bdq_head_e.valid && (bdq_head_e.bits.state === b_done)
-
-  when (commit_bdq)
-  {
-    bdq(bdq_head).valid              := false.B
-    bdq(bdq_head).bits.addr.valid    := false.B
-    bdq(bdq_head).bits.executed      := false.B
-    bdq(bdq_head).bits.state         := b_init
-
-    printf("YH+ [%d] Dequeue bdq(%d)\n", io.core.tsc_reg, bdq_head)
-
-    temp_bdq_head = Mux(commit_bdq, WrapInc(temp_bdq_head, numBdqEntries),
-                                    temp_bdq_head)
-  }
-
-  bdq_head := temp_bdq_head
-
-  printf("YH+ [%d] bdq_head: %d bdq_tail: %d\n", io.core.tsc_reg, bdq_head, bdq_tail)
 
   val bdq_load_idx = RegNext(AgePriorityEncoder((0 until numBdqEntries).map(i => {
     val e = bdq(i).bits
@@ -673,6 +632,18 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                       && (bdq_load_e.bits.state === b_occChk)
                       && !bdq_load_e.bits.executed)
 
+  val bdq_store_idx = RegNext(AgePriorityEncoder((0 until numBdqEntries).map(i => {
+    val e = bdq(i).bits
+    e.state === b_bndStr && !e.executed && e.committed
+  }), bdq_head))
+  val bdq_store_e = bdq(bdq_store_idx)
+
+  val bdq_store_val = (bdq_store_e.valid
+                      && (bdq_store_e.bits.state === b_bndStr)
+                      && bdq_store_e.bits.committed
+                      && !bdq_store_e.bits.executed)
+
+
   //-------------------------------------------------------------
   //-------------------------------------------------------------
   // Bounds Request Generation
@@ -680,19 +651,24 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   //-------------------------------------------------------------
 
   val will_fire_bnd_load = Wire(Vec(memWidth, Bool()))
+  val will_fire_bnd_store = Wire(Vec(memWidth, Bool()))
 
   val can_fire_bnd_load = widthMap(w => (mcq_load_val || bdq_load_val)  &&
                                     !lrsc_valid                         &&
                                     (w == memWidth-1).B)
 
-  printf("YH+ [%d] mcq_load_idx: %d\n", io.core.tsc_reg, mcq_load_idx)
+  val can_fire_bnd_store = widthMap(w => bdq_store_val                  &&
+                                    !lrsc_valid                         &&
+                                    (w == memWidth-1).B)
 
   val bnd_load_paddr = 65536.U
   val bnd_load_uop = Mux(mcq_load_val, mcq_load_e.bits.uop,
                         Mux(bdq_load_val, bdq_load_e.bits.uop, NullMicroOp))
 
-  io.core.fencei_rdy    := !stq_nonempty && (!mcq_nonempty || !bdq_nonempty || lrsc_valid) && io.dmem.ordered //yh+
+  val bnd_store_paddr = 65536.U
+  val bnd_store_uop = bdq_load_e.bits.uop
 
+  io.core.fencei_rdy    := !stq_nonempty && (!mcq_nonempty || !bdq_nonempty || lrsc_valid) && io.dmem.ordered //yh+
   //yh+end
 
 
@@ -865,6 +841,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     will_fire_store_commit  (w) := lsu_sched(can_fire_store_commit  (w) , false, true , false, false) //     , DC
     will_fire_load_wakeup   (w) := lsu_sched(can_fire_load_wakeup   (w) , false, true , true , false) //     , DC , LCAM
     will_fire_bnd_load      (w) := lsu_sched(can_fire_bnd_load      (w) , false, true , false, false) //     , DC , //yh+
+    will_fire_bnd_store     (w) := lsu_sched(can_fire_bnd_store     (w) , false, true , false, false) //     , DC , //yh+
 
     assert(!(exe_req(w).valid && !(will_fire_load_incoming(w) || will_fire_stad_incoming(w) || will_fire_sta_incoming(w) || will_fire_std_incoming(w) || will_fire_sfence(w))))
 
@@ -1135,10 +1112,37 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       dmem_req(w).bits.addr           := bnd_load_paddr
       dmem_req(w).bits.uop            := bnd_load_uop
 
-      mcq_load_e.bits.executed        := dmem_req_fire(w)
+      mcq_load_e.bits.executed        := Mux(mcq_load_val, dmem_req_fire(w), 0.U)
+      bdq_load_e.bits.executed        := Mux(bdq_load_val, dmem_req_fire(w), 0.U)
 
-      printf("YH+ [%d] mcq(%d) Send bounds load paddr: %x\n",
-              io.core.tsc_reg, mcq_load_idx, bnd_load_paddr)
+      when (dmem_req_fire(w) && will_fire_bnd_load(w) && mcq_load_val)
+      {
+        printf("YH+ [%d] mcq(%d) Send bounds load paddr: %x\n",
+                io.core.tsc_reg, mcq_load_idx, bnd_load_paddr)
+      }
+        .elsewhen (dmem_req_fire(w) && will_fire_bnd_load(w) && bdq_load_val)
+      {
+        printf("YH+ [%d] bdq(%d) Send bounds load paddr: %x\n",
+                io.core.tsc_reg, bdq_load_idx, bnd_load_paddr)
+      }
+    }
+      .elsewhen (will_fire_bnd_store(w)) //yh+
+    {
+      dmem_req(w).valid               := true.B
+      dmem_req(w).bits.addr           := bnd_store_paddr
+      dmem_req(w).bits.data           := (new freechips.rocketchip.rocket.StoreGen(
+                                          bdq_store_e.bits.uop.mem_size, 0.U,
+                                          bdq_store_e.bits.data.bits,
+                                          coreDataBytes)).data
+      dmem_req(w).bits.uop            := bnd_store_uop
+
+      bdq_store_e.bits.executed       := dmem_req_fire(w)
+
+      when (dmem_req_fire(w) && will_fire_bnd_store(w) && bdq_store_val)
+      {
+        printf("YH+ [%d] bdq(%d) Send bounds store paddr: %x\n",
+                io.core.tsc_reg, bdq_store_idx, bnd_store_paddr)
+      }
     }
 
     //-------------------------------------------------------------
@@ -1564,74 +1568,6 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
   val dmem_resp_fired = WireInit(widthMap(w => false.B))
 
-  //yh+begin
-  val bnd_load_resp_val = RegNext(widthMap(w =>
-                                  io.dmem.resp(w).valid &&
-                                  io.dmem.resp(w).bits.uop.uses_mcq))
-
-  val bnd_load_resp_idx = RegNext(widthMap(w =>
-                                  Mux(io.dmem.resp(w).valid,
-                                      io.dmem.resp(w).bits.uop.mcq_idx, 0.U)))
-  val bnd_load_resp_data = RegNext(widthMap(w =>
-                                  Mux(io.dmem.resp(w).valid,
-                                      io.dmem.resp(w).bits.data, 0.U)))
-  val bnd_check = Wire(Bool())
-  bnd_check := true.B
-
-  for (w <- 0 until memWidth) {
-    when (io.dmem.resp(w).valid && io.dmem.resp(w).bits.uop.uses_mcq)
-    {
-      printf("YH+ [%d] mcq(%d) Received RESP(%d)\n",
-              io.core.tsc_reg, io.dmem.resp(w).bits.uop.mcq_idx, w.U)
-    }
-
-    when (bnd_load_resp_val(w))
-    {
-      printf("YH+ [%d] bnd_load_resp_val(%d) is true\n",
-              io.core.tsc_reg, w.U)
-
-      val mcq_idx = bnd_load_resp_idx(w)
-      val count = mcq(mcq_idx).bits.count
-
-      when (bnd_check)
-      {
-        mcq(mcq_idx).bits.state       := m_done
-        mcq(mcq_idx).bits.executed    := false.B
-
-        printf("YH+ [%d] mcq(%d) Passed bounds check!\n",
-                io.core.tsc_reg, mcq_idx)
-      }
-        .elsewhen (count < 4.U)
-      {
-        mcq(mcq_idx).bits.executed    := false.B
-        mcq(mcq_idx).bits.count       := count + 1.U
-
-        printf("YH+ [%d] mcq(%d) Increase counter\n",
-                io.core.tsc_reg, mcq_idx)
-      }
-        .otherwise
-      {
-        mcq(mcq_idx).bits.state       := m_fail
-
-        printf("YH+ [%d] mcq(%d) Failed bounds check!\n",
-                io.core.tsc_reg, mcq_idx)
-      } 
-    }
-  }
-
-  when (lrsc_count > 0.U) {
-    lrsc_count := lrsc_count - 1.U
-  }
-
-  when (dmem_req(0).valid && dmem_req(0).bits.uop.mem_cmd === rocket.M_XLR) {
-    lrsc_count := (lrscCycles - 1).U
-    //printf("YH+ [%d] lr is sent to cache! M_XLR\n", io.core.tsc_reg)
-  }
-
-  //printf("YH+ [%d] lrsc_valid: %d\n", io.core.tsc_reg, lrsc_valid)
- 
-  //yh+end
-
   for (w <- 0 until memWidth) {
     // Handle nacks
     when (io.dmem.nack(w).valid)
@@ -1657,13 +1593,21 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
         }
       }
       //yh+begin
-         .otherwise
+        .elsewhen (io.dmem.nack(w).bits.uop.uses_mcq)
       {
-        assert(io.dmem.nack(w).bits.uop.uses_mcq)
         val mcq_idx = io.dmem.nack(w).bits.uop.mcq_idx
         mcq(mcq_idx).bits.executed    := false.B
 
         printf("YH+ [%d] mcq(%d) Received NACK\n", io.core.tsc_reg, mcq_idx)
+      }
+        .otherwise
+      {
+        assert(io.dmem.nack(w).bits.uop.uses_bdq)
+
+        val bdq_idx = io.dmem.nack(w).bits.uop.bdq_idx
+        bdq(bdq_idx).bits.executed    := false.B
+
+        printf("YH+ [%d] bdq(%d) Received NACK\n", io.core.tsc_reg, bdq_idx)
       }
       //+end
     }
@@ -1710,6 +1654,19 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
           stq(io.dmem.resp(w).bits.uop.stq_idx).bits.debug_wb_data := io.dmem.resp(w).bits.data
         }
       }
+      //yh+begin
+        .elsewhen (io.dmem.resp(w).bits.uop.uses_bdq)
+      {
+        val bdq_idx = io.dmem.resp(w).bits.uop.bdq_idx
+        when (bdq(bdq_idx).bits.state === b_bndStr)
+        {
+          bdq(bdq_idx).bits.state        := b_done
+
+          printf("YH+ [%d] bdq(%d) Received Store RESP\n",
+                  io.core.tsc_reg, bdq_idx)
+        }
+      }
+      //yh+end
     }
 
 
@@ -1761,6 +1718,127 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
     // We correcty speculated last cycle, so we don't send miss signal
     io.core.ld_miss := false.B
   }
+
+  //yh+begin
+  val mcq_load_resp_val = RegNext(widthMap(w =>
+                                  io.dmem.resp(w).valid &&
+                                  io.dmem.resp(w).bits.uop.uses_mcq))
+
+  val mcq_load_resp_idx = RegNext(widthMap(w =>
+                                  Mux(io.dmem.resp(w).valid && io.dmem.resp(w).bits.uop.uses_mcq,
+                                      io.dmem.resp(w).bits.uop.mcq_idx, 0.U)))
+  val mcq_load_resp_data = RegNext(widthMap(w =>
+                                  Mux(io.dmem.resp(w).valid && io.dmem.resp(w).bits.uop.uses_mcq,
+                                      io.dmem.resp(w).bits.data, 0.U)))
+  val bnd_check = Wire(Bool())
+
+  val bdq_load_resp_val = RegNext(widthMap(w =>
+                                  io.dmem.resp(w).valid &&
+                                  io.dmem.resp(w).bits.uop.uses_bdq))
+
+  val bdq_load_resp_idx = RegNext(widthMap(w =>
+                                  Mux(io.dmem.resp(w).valid && io.dmem.resp(w).bits.uop.uses_bdq,
+                                      io.dmem.resp(w).bits.uop.bdq_idx, 0.U)))
+  val bdq_load_resp_data = RegNext(widthMap(w =>
+                                  Mux(io.dmem.resp(w).valid && io.dmem.resp(w).bits.uop.uses_bdq,
+                                      io.dmem.resp(w).bits.data, 0.U)))
+
+  val occ_check = Wire(Bool())
+  bnd_check := true.B
+  occ_check := true.B
+
+  for (w <- 0 until memWidth) {
+    when (io.dmem.resp(w).valid && io.dmem.resp(w).bits.uop.uses_mcq)
+    {
+      printf("YH+ [%d] mcq(%d) Received Load RESP(%d)\n",
+              io.core.tsc_reg, io.dmem.resp(w).bits.uop.mcq_idx, w.U)
+    }
+      .elsewhen (io.dmem.resp(w).valid && io.dmem.resp(w).bits.uop.uses_bdq)
+    {
+      printf("YH+ [%d] bdq(%d) Received Load RESP(%d)\n",
+              io.core.tsc_reg, io.dmem.resp(w).bits.uop.bdq_idx, w.U)
+    }
+
+    when (mcq_load_resp_val(w))
+    {
+      printf("YH+ [%d] mcq_load_resp_val(%d) is true\n",
+              io.core.tsc_reg, w.U)
+
+      val mcq_idx = mcq_load_resp_idx(w)
+      val count = mcq(mcq_idx).bits.count
+
+      when (bnd_check)
+      {
+        mcq(mcq_idx).bits.state       := m_done
+        mcq(mcq_idx).bits.executed    := false.B
+
+        printf("YH+ [%d] mcq(%d) Passed bounds check!\n",
+                io.core.tsc_reg, mcq_idx)
+      }
+        .elsewhen (count < csr_num_ways)
+      {
+        mcq(mcq_idx).bits.executed    := false.B
+        mcq(mcq_idx).bits.count       := count + 1.U
+
+        printf("YH+ [%d] mcq(%d) Increase counter\n",
+                io.core.tsc_reg, mcq_idx)
+      }
+        .otherwise
+      {
+        mcq(mcq_idx).bits.state       := m_fail
+
+        printf("YH+ [%d] mcq(%d) Failed bounds check!\n",
+                io.core.tsc_reg, mcq_idx)
+      } 
+    }
+
+    when (bdq_load_resp_val(w))
+    {
+      printf("YH+ [%d] bdq_load_resp_val(%d) is true\n",
+              io.core.tsc_reg, w.U)
+
+      val bdq_idx = bdq_load_resp_idx(w)
+      val count = bdq(bdq_idx).bits.count
+
+      when (occ_check)
+      {
+        bdq(bdq_idx).bits.state       := b_bndStr
+        bdq(bdq_idx).bits.executed    := false.B
+
+        printf("YH+ [%d] bdq(%d) Passed occupancy check!\n",
+                io.core.tsc_reg, bdq_idx)
+      }
+        .elsewhen (count < csr_num_ways)
+      {
+        bdq(bdq_idx).bits.executed    := false.B
+        bdq(bdq_idx).bits.count       := count + 1.U
+
+        printf("YH+ [%d] bdq(%d) Increase counter\n",
+                io.core.tsc_reg, bdq_idx)
+      }
+        .otherwise
+      {
+        bdq(bdq_idx).bits.state       := m_fail
+
+        printf("YH+ [%d] bdq(%d) Failed occupancy check!\n",
+                io.core.tsc_reg, bdq_idx)
+      } 
+    }
+  }
+
+  when (lrsc_count > 0.U) {
+    lrsc_count := lrsc_count - 1.U
+  }
+
+  when (dmem_req(0).valid && dmem_req(0).bits.uop.mem_cmd === rocket.M_XLR) {
+    lrsc_count := (lrscCycles - 1).U
+    //printf("YH+ [%d] lr is sent to cache! M_XLR\n", io.core.tsc_reg)
+  }
+
+  //printf("YH+ [%d] lrsc_valid: %d\n", io.core.tsc_reg, lrsc_valid)
+ 
+  //yh+end
+
 
   //-------------------------------------------------------------
   // Kill speculated entries on branch mispredict
@@ -1888,6 +1966,96 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
       stq_execute_head := WrapInc(stq_execute_head, numStqEntries)
     }
   }
+
+  //yh+begin
+  //-------------------------------------------------------------
+  // Kill speculated entries on branch mispredict
+  //-------------------------------------------------------------
+  //-------------------------------------------------------------
+  for (i <- 0 until numMcqEntries)
+  {
+    when (mcq(i).valid)
+    {
+      mcq(i).bits.uop.br_mask := GetNewBrMask(io.core.brinfo, mcq(i).bits.uop.br_mask)
+      when (IsKilledByBranch(io.core.brinfo, mcq(i).bits.uop))
+      {
+        mcq(i).valid           := false.B
+        mcq(i).bits.addr.valid := false.B
+      }
+    }
+  }
+
+  for (i <- 0 until numBdqEntries)
+  {
+    when (bdq(i).valid)
+    {
+      bdq(i).bits.uop.br_mask := GetNewBrMask(io.core.brinfo, bdq(i).bits.uop.br_mask)
+      when (IsKilledByBranch(io.core.brinfo, bdq(i).bits.uop))
+      {
+        bdq(i).valid           := false.B
+        bdq(i).bits.addr.valid := false.B
+      }
+    }
+  }
+
+  //-------------------------------------------------------------
+  when (io.core.brinfo.valid && io.core.brinfo.mispredict && !io.core.exception)
+  {
+    mcq_tail := io.core.brinfo.mcq_idx
+    bdq_tail := io.core.brinfo.bdq_idx
+  }
+
+  //-------------------------------------------------------------
+  //-------------------------------------------------------------
+  // dequeue old entries on commit
+  //-------------------------------------------------------------
+  //-------------------------------------------------------------
+
+  val mcq_head_e  = mcq(mcq_head) // Current MCQ entry to operate with
+  var temp_mcq_head = mcq_head
+
+  val commit_mem = mcq_head_e.valid && (mcq_head_e.bits.state === m_done)
+
+  when (commit_mem)
+  {
+    mcq(mcq_head).valid              := false.B
+    mcq(mcq_head).bits.addr.valid    := false.B
+    mcq(mcq_head).bits.executed      := false.B
+    mcq(mcq_head).bits.state         := m_init
+
+    printf("YH+ [%d] Dequeue mcq(%d)\n", io.core.tsc_reg, mcq_head)
+
+    temp_mcq_head = Mux(commit_mem, WrapInc(temp_mcq_head, numMcqEntries),
+                                    temp_mcq_head)
+  }
+
+  mcq_head := temp_mcq_head
+
+  printf("YH+ [%d] mcq_head: %d mcq_tail: %d\n", io.core.tsc_reg, mcq_head, mcq_tail)
+
+  val bdq_head_e  = bdq(bdq_head) // Current MCQ entry to operate with
+  var temp_bdq_head = bdq_head
+
+  val commit_bdq = bdq_head_e.valid && (bdq_head_e.bits.state === b_done)
+
+  when (commit_bdq)
+  {
+    bdq(bdq_head).valid              := false.B
+    bdq(bdq_head).bits.addr.valid    := false.B
+    bdq(bdq_head).bits.executed      := false.B
+    bdq(bdq_head).bits.state         := b_init
+
+    printf("YH+ [%d] Dequeue bdq(%d)\n", io.core.tsc_reg, bdq_head)
+
+    temp_bdq_head = Mux(commit_bdq, WrapInc(temp_bdq_head, numBdqEntries),
+                                    temp_bdq_head)
+  }
+
+  bdq_head := temp_bdq_head
+
+  printf("YH+ [%d] bdq_head: %d bdq_tail: %d\n", io.core.tsc_reg, bdq_head, bdq_tail)
+  //yh+end
+
 
   // -----------------------
   // Hellacache interface
