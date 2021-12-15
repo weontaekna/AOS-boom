@@ -494,7 +494,8 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   
   enableWYFY              := io.core.wyfy_config.enableWYFY
   initWYFY                := io.core.wyfy_config.enableWYFY & !enableWYFY
-  hbt_base_addr           := io.core.wyfy_config.hbt_base_addr
+  //TODO hbt_base_addr           := io.core.wyfy_config.hbt_base_addr
+  hbt_base_addr           := 65535.U
   hbt_num_way             := io.core.wyfy_config.hbt_num_way
 
   io.core.numSignedInst   := num_signed_inst
@@ -596,7 +597,8 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
       mcq(midx).bits.addr.valid   := true.B
       mcq(midx).bits.addr.bits    := exe_mcq_vaddr(w)
-      mcq(midx).bits.state        := Mux(exe_mcq_isPACed(w), m_bndChk, m_done) // Go to m_bndChk
+      //TODO mcq(midx).bits.state        := Mux(exe_mcq_isPACed(w), m_bndChk, m_done) // Go to m_bndChk
+      mcq(midx).bits.state        := m_bndChk // Go to m_bndChk
 
       printf("YH+ [%d] mcq(%d) exe_req(%d) vaddr: %x PAC: %d PACed: %d\n",
         io.core.tsc_reg, midx, w.U, exe_mcq_vaddr(w), (exe_mcq_vaddr(w) >> 45), exe_mcq_isPACed(w))
@@ -725,12 +727,12 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                                     !lrsc_valid                         &&
                                     (w == memWidth-1).B)
 
-  val bnd_load_paddr = 65536.U
+  val bnd_load_paddr = bt_base_Addr
   val bnd_load_uop = Mux(mcq_load_val, mcq_load_e.bits.uop,
                         Mux(bdq_load_val, bdq_load_e.bits.uop, NullMicroOp))
 
-  val bnd_store_paddr = 65536.U
-  val bnd_store_uop = bdq_load_e.bits.uop
+  val bnd_store_paddr = bt_base_addr
+  val bnd_store_uop = bdq_store_e.bits.uop
 
   io.core.fencei_rdy    := !stq_nonempty && (!mcq_nonempty || !bdq_nonempty || lrsc_valid) && io.dmem.ordered //yh+
   //yh+end
