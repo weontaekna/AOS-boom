@@ -118,6 +118,7 @@ class LSUCoreIO(implicit p: Parameters) extends BoomBundle()(p)
   //yh+Begin
   val dis_mcq_idx = Output(Vec(coreWidth, UInt(mcqAddrSz.W)))
   val dis_bdq_idx = Output(Vec(coreWidth, UInt(bdqAddrSz.W)))
+
   val mcq_full    = Output(Vec(coreWidth, Bool()))
   val bdq_full    = Output(Vec(coreWidth, Bool()))
   //yh+end
@@ -240,6 +241,26 @@ class BDQEntry(implicit p: Parameters) extends BoomBundle()(p)
   // 5 : bndset
               
   val debug_wb_data       = UInt(xLen.W)
+}
+
+class WYFYConfig(implicit p: Parameters) extends BoomBundle()(p)
+{
+  val enableWYFY          = Bool()
+
+  val hbt_base_addr       = UInt(coreMaxAddrBits.W)
+
+  val hbt_num_way         = UInt(xLen.W)
+  val num_signed_inst     = UInt(xLen.W)
+  val num_unsigned_inst   = UInt(xLen.W)
+  val num_bndstr          = UInt(xLen.W)
+  val num_bndclr          = UInt(xLen.W)
+  val num_bndsrch         = UInt(xLen.W)
+
+  val num_mem_req         = UInt(xLen.W)
+  val num_mem_size        = UInt(xLen.W)
+
+  val cacheHitCnt         = UInt(xLen.W)
+  val cacheMissCnt        = UInt(xLen.W)
 }
 //yh+end
 
@@ -1987,6 +2008,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
         mcq(i).valid           := false.B
         mcq(i).bits.addr.valid := false.B
+
       }
     }
   }
@@ -2026,9 +2048,10 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   val mcq_head_e  = mcq(mcq_head) // Current MCQ entry to operate with
   var temp_mcq_head = mcq_head
 
-  val commit_mem = mcq_head_e.valid && (mcq_head_e.bits.state === m_done)
+  //yh-val commit_mcq = mcq_head_e.valid && (mcq_head_e.bits.state === m_done)
+  val commit_mcq = mcq_head_e.valid && (mcq_head_e.bits.state === m_done)
 
-  when (commit_mem)
+  when (commit_mcq)
   {
     mcq(mcq_head).valid              := false.B
     mcq(mcq_head).bits.addr.valid    := false.B
@@ -2037,7 +2060,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
     printf("YH+ [%d] Dequeue mcq(%d)\n", io.core.tsc_reg, mcq_head)
 
-    temp_mcq_head = Mux(commit_mem, WrapInc(temp_mcq_head, numMcqEntries),
+    temp_mcq_head = Mux(commit_mcq, WrapInc(temp_mcq_head, numMcqEntries),
                                     temp_mcq_head)
   }
 
@@ -2048,7 +2071,8 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   val bdq_head_e  = bdq(bdq_head) // Current MCQ entry to operate with
   var temp_bdq_head = bdq_head
 
-  val commit_bdq = bdq_head_e.valid && (bdq_head_e.bits.state === b_done)
+  //val commit_bdq = bdq_head_e.valid && (bdq_head_e.bits.state === b_done)
+  val commit_bdq = (bdq_head_e.bits.state === b_done)
 
   when (commit_bdq)
   {
